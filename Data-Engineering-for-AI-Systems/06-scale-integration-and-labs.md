@@ -82,6 +82,16 @@ By the end of Session 3 you have touched every row at introductory depth. The ex
 
 ---
 
+## 🟡 A query, and why one layout costs more
+
+Stay with a small picture. The curated weather data covers five years. A person asks for mean humidity in May 2024, and nothing else.
+
+On one CSV, the engine opens every year, reads station id, date, temperature, pressure, wind, humidity, and the label, and only then keeps May 2024. You paid to read columns and years the question did not name.
+
+On Parquet partitioned as `year=…/month=…`, the catalog knows to open only `year=2024/month=05/`. Inside those files it reads the humidity block and does not read the wind block. The predicate was pushed down into the scan. The bytes scanned fall. Athena’s bill falls with them. The mean should be the same number. If it is not, the partition is wrong or the clean step wrote a different unit into that month, and you have found a bug rather than a discount.
+
+This is also the handoff. The training job that says “read curated version 4” must name that version. If it says “read the prefix,” someone can replace May 2024 with a backfill while the job is running, and the model card will describe a file that no longer exists. Version id, schema, path. Then the pipeline, not a person’s memory, is what starts the job when EventBridge fires.
+
 ## The mastery checklist, as board work
 
 You are ready to leave the module when you can do these without the slides.

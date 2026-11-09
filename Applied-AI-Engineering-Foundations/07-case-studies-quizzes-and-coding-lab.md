@@ -107,6 +107,18 @@ The reason you cannot skip to model engineering: a clever architecture on a leak
 
 ---
 
+## 🟡 One mixed case, the way the viva asks it
+
+“A hospital wants AI to handle diabetes.” That sentence is not answerable. Split it the way the quizzes split the bank.
+
+If the output is a flag on the form, “normal, pre-diabetic, or diabetic,” from this year’s lab numbers, the task is multi-class classification. The metric is not accuracy until you have seen how rare diabetes is in the file. If it is rare, demand recall and a confusion matrix. The features must exist before the diagnosis you are pretending to predict. Using the doctor’s later note as a feature is leakage.
+
+If the output is “estimated fasting glucose next month,” that is regression, and RMSE is in glucose units. A different y, a different metric, possibly a different model. Do not reuse the classifier and call it the same project.
+
+If the output is a letter to the patient explaining the result, that is GenAI. It does not choose the class. It receives the class from the system that is allowed to choose it, and a person still owns the letter. Pasting the patient’s name and identifier into a public model is a compliance failure even if the letter is kind.
+
+If the rule is “flag the file when fasting glucose is above the published cutoff,” that is not ML. Write the comparison. The hospital can have all four, in one product, and they are not one model. The viva is testing whether you refuse to answer “which algorithm?” until the output is named.
+
 ## The mastery checklist, said as things you can do at the board
 
 - Draw AI containing ML containing the generative lab, and place an LLM inside the lab. Say one product that sits in ML and is not generative.

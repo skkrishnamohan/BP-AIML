@@ -158,6 +158,20 @@ Say what is still missing if all you have is “we will use a neural net.” You
 
 ---
 
+## 🟡 The spam filter, followed for six months
+
+January: the filter is trained, recall on the test set is acceptable, and it is deployed. The service code will not change until June. This is the story that makes “deploy is the beginning” concrete.
+
+February: a new style of spam arrives, short messages with a single link and no keywords the model weighted heavily. Nothing throws. Latency is unchanged. The inbox spam rate, the KPI, starts to rise. Accuracy on the old test set is still the January number, because nobody is recomputing it on February’s mail. A monitor that only watches the old test set will stay green. A monitor that watches the share of mail users mark as spam will not.
+
+March: an engineer retrains on the new labels. The code commit is identical. The data version is not. If the release record says only the git commit, February’s model and March’s model are indistinguishable, and you cannot roll back to the weights that matched a regulatory test. The data version is part of the release.
+
+April: someone adds a feature, “does the message contain a URL?”, and fits the scaler on all mail including the evaluation week. The new score looks wonderful and then falls the next week. That is leakage, and it happened inside a healthy lifecycle, not instead of one.
+
+May: the business asks for fewer false positives, because legitimate mail is being buried. The model metric they were maximizing was recall. The KPI they are now feeling is “genuine mail delayed.” Both numbers were available in January. Only one was written into the problem statement. Changing the threshold is a product decision. It is not a reason to distrust the entire lifecycle.
+
+June: the code finally changes, because the service must log the score. The behavior change everyone argued about in March did not come from this commit. It came from the data. Write that on the diagram so the next incident review looks at both.
+
 ## Checkpoint
 
 1. Why do we say deployment is the beginning, not the end?

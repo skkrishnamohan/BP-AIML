@@ -121,6 +121,33 @@ The lab checkpoint is **7 of 7** checks passing, and about **5,466** clean rows.
 
 ---
 
+## 🟡 One station, six rows, repaired in order
+
+Write a tiny file in the margin and do not skip ahead. Station ids and temperatures are enough to see four defects at once.
+
+| As received | What a person sees | What is actually wrong |
+|-------------|--------------------|------------------------|
+| s01, 01/02/2024, temp 77 | A January or February day | Lowercase id. Day-month versus month-day. 77 is not a Celsius air temperature you should trust without a question. |
+| S01, 2024-02-01, temp 25 | Looks like the clean version of the row above | This may be the duplicate of that same day once both are parsed, or it may be a second report. You cannot tell until the key is normalized. |
+| S01, 2024-02-02, temp -999 | A very cold day | Sentinel. Not a temperature. |
+| S01, 2024-02-03, temp (blank) | A gap | Missing. Do not fill it from 4 February. |
+| S02, 2024-02-03, humidity 140 | A humid day | Impossible humidity. |
+| S01, 2024-02-04, temp 26 | A normal day | The last day. It has no tomorrow inside the file. |
+
+The order we are not allowed to “optimize”:
+
+1. Uppercase the station id. `s01` becomes `S01`. Distinct stations fall. Now the duplicate key can be seen.
+2. Parse every date to ISO. `01/02/2024` becomes 2024-02-01 if the contract says day-first. If you guess month-first you have silently moved the row to 1 January. Write the assumption in the log.
+3. Only now drop duplicate `(station_id, date)` keys. Doing it before parsing would keep both the text date and the ISO date, because they do not look like duplicates yet.
+4. Replace −999 with NaN. The blank and the sentinel are now the same kind of hole. Flag them if you fill them. Do not fill 3 February from 4 February.
+5. Ask the unit question about 77 before you range-check. If the contract says “values above 55 in this column during the known bad week are Fahrenheit,” convert 77 °F to about 25 °C, then range-check. If you range-check first and the legal band is −5 to 50, you delete 77 and you never recover the day. If 77 had been 40 °F, a Celsius range check would have kept 40, which is a cool day in Fahrenheit and a hot day in Celsius. That is the row the reversed order cannot see.
+6. Humidity 140 fails the contract. Drop or clip, as the contract says, and count it. Do not average it into a “profile” you then forget.
+7. Build `rain_tomorrow` only after the sort, and drop 4 February for S01 because tomorrow is not in the file.
+
+Then run the same counts again. Duplicate keys: 0. Unparseable dates: 0. Sentinels left in the temperature column: 0. Humidity outside 0–100: 0. That second count is validation. The first count was only a profile.
+
+The lab’s 5,466 rows is this kind of accounting on the real file. If your tiny example “ends” with the same number of rows you started with, you skipped the drop rules and called it cleaning.
+
 ## Checkpoint
 
 Name two defects that look ordinary in a spreadsheet and say, for each, what the model will learn if you leave it.

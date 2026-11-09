@@ -141,6 +141,16 @@ A **node** is a thing: a station, an alert, a route, a customer. An **edge** is 
 
 ---
 
+## 🟡 Two annotators and a rule, on ten bulletins
+
+Ten bulletins. Eight are ordinary “clear” days. Two mention weather that people fight about: “no rain expected” and “visibility poor, roads wet.”
+
+Annotator 1 and annotator 2 both mark all eight easy days “clear.” They agree 80% before they have looked at a hard case. If you stop at percent agreement you will congratulate them. On the two hard bulletins they disagree both times. The agreement beyond chance is much less flattering, which is what kappa is trying to tell you. Below about 0.6 you rewrite the guide: does “roads wet” mean rain at the station or not, and does “no rain expected” abstain rather than vote rain? You do not “retrain the annotators” first. They followed an incomplete page.
+
+The programmatic rule `lf_rain` contains the substring rain. It labels “no rain expected” as rain and abstains on the fog bulletin, which has no word rain. The majority vote is therefore wrong on the negation and silent on the fog. Those two rows go to a human if you built abstention and conflict correctly. They become silent errors if the rule is not allowed to abstain. The gold set, the two hard bulletins plus a sample of the easy ones, is how you notice. The rule’s accuracy on rows the rule labeled will not show you the negation, because those rows never come back as questions.
+
+After the guide is fixed, kappa on a new pilot of 20 is the number you trust. The old 80% is a souvenir of the majority class.
+
 ## What to remember without the slides
 
 Labels need a guide and a measurement of agreement that is not flattered by the majority class. Rules plus humans beat either one alone on cost and on the negation bugs. The store follows the question. Version the code, the data, and the settings together, or you cannot explain the model you shipped.

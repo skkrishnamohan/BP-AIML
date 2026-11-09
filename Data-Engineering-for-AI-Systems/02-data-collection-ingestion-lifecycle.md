@@ -133,6 +133,16 @@ Do the check by hand on one station. Print three consecutive days. Confirm that 
 
 ---
 
+## 🟡 Monday morning at one station, so the rules are not abstract
+
+Station S01 reports hourly. On Sunday the link fails from 18:00 to 23:00. Those five hours arrive on Monday at 07:00, after the farmer’s 06:00 decision has already been made.
+
+Event time is Sunday evening. Arrival time is Monday morning. If the pipeline uses arrival time as if it were weather time, Monday morning looks like a burst of Sunday’s climate and Sunday evening looks like the station did not exist. Seasonality features will be wrong because the hour is wrong. If the 06:00 batch closed the Sunday partition with no lateness window, the late hours are dropped and Sunday’s mean is biased toward the hours that happened to arrive. If the batch rewrites Sunday in place, last week’s model card now points at a file whose contents changed. The lateness window plus a new version is the grown-up behavior: Sunday’s curated partition stays the one the Monday score used, and a later version may include the late hours for the next training run, clearly labeled.
+
+The same morning, someone shuffles the last 90 days to “make a random test.” Sunday’s late rows, once they are in the table, can train a model that is scored on Saturday. The live system on Saturday could not see Sunday. The score is a rehearsal of a power the product will not have. Chronological split is the repair. It is not a preference for tidiness.
+
+Raw stays the Sunday messages as they arrived, including the late ones, with their arrival timestamps. Cleaning does not edit those objects. It writes a new version in clean. If the hour parsing is wrong, you rerun from raw. If you had “fixed” the raw messages, the rerun would preserve the mistake and call it the source.
+
 ## Checkpoint
 
 Why is a random shuffle an invalid test for rain prediction? Describe one specific way the future would leak into the past.

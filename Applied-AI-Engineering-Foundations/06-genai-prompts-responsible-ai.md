@@ -103,6 +103,22 @@ These are not “phase 8, if we have time.” Bias starts when you collect. Expl
 
 ---
 
+## 🟡 The workshop prompt, written out and then marked
+
+This is the version we would actually paste, so the table above is not the only artifact.
+
+> Task: draft a 4-hour workshop agenda.
+> Context: the room is 25 aerospace engineering leads. They have already used a chatbot. They have not deployed a model. No vendor pitches. The outcome of the day is a written decision about one internal use case, not a tour of products.
+> Format: a table with start time, session title, and one deliverable for that session. Six sessions at most. A 20-minute break.
+> Evidence: use only this brief. If a tool is not named in the brief, do not recommend it by name.
+> Check: every deliverable is a noun the room can hold up (a list, a diagram, a decision). If you need a fact that is not here, ask before you draft.
+
+Read it against the bad prompt “write something about AI.” The bad prompt forces the model to invent the audience (it will pick students or executives at random), the length (it will pick whatever is typical), and the success test (there isn’t one). The long prompt can be marked by a person who was not in the room: count the sessions, look for a vendor name, look for a deliverable that is only a verb.
+
+**What we do when the answer is still wrong.** We do not add the word “accurately.” We add the missing fact or we remove a freedom. If the model invented a tool called Northwind, the evidence line was too weak or the temperature was high. If it produced seven sessions, the format line needs “reject your own draft if there are more than six.” The second instruction is a guardrail inside the prompt. It is still not a guarantee. Run it five times and count the failures. That count is the evaluation. A single beautiful draft is a demo.
+
+**PII, on a concrete paste.** An engineer pastes: “Customer Ravi Menon, account ending 4412, was charged twice, draft the apology.” The draft may be fine and the incident has already happened, because the name and the account number have left the building and entered a prompt log you may not control. The safe paste is: “A customer was charged twice on the same day for the same amount. Draft a four-sentence apology. Do not invent a name, an amount, or a case id. Leave brackets where those go.” You own compliance before you own the eloquence.
+
 ## Checkpoint
 
 Name two duties that remain with a person even if the language model is the strongest one you can call. Say what goes wrong in the week you drop each duty.

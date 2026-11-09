@@ -170,6 +170,29 @@ The toolkit from class:
 
 ---
 
+## 🟡 One more matrix, small enough to finish in the margin
+
+A screening set has 20 people. 5 really have the condition. The model flags 8 people. Of those 8, 4 really have it. So it missed 1 sick person and flagged 4 healthy ones.
+
+Fill the cells before you read on.
+
+- TP = 4 (flagged, and sick)
+- FP = 4 (flagged, and healthy)
+- FN = 1 (not flagged, and sick)
+- TN = 11 (not flagged, and healthy). Check: 4 + 4 + 1 + 11 = 20.
+
+Accuracy = (4 + 11) / 20 = 15/20 = 0.75.
+
+Precision = 4 / (4 + 4) = 0.50. Half of the alarms are real.
+
+Recall = 4 / (4 + 1) = 0.80. We found four of the five sick people.
+
+F1 = 2 × (0.50 × 0.80) / (0.50 + 0.80) = 0.80 / 1.30 ≈ 0.615.
+
+Now change only the threshold story. Suppose the clinic says a missed person is much worse than an extra test, and they would rather flag 12 people if that catches all 5. Recall would go to 1. Precision would fall, because the extra flags are mostly healthy. Accuracy might fall too. The clinic is still more successful. Write that in the margin so the 0.75 does not hypnotize you: the number moved in the “wrong” direction and the product got better.
+
+**Class weight, said with this table.** If the training loss treats each of the 15 healthy people as equal to each of the 5 sick people, the optimizer is under pressure from the healthy majority. A class weight can count each sick person three times as heavily in the loss, so ignoring them stops being cheap. The weight does not change the test matrix. It changes what the training is willing to get wrong. You still report precision and recall on an unweighted test set, or you will be grading your own reweighted fantasy.
+
 ## Checkpoint
 
 Precision is 100% and recall is 10%. Say what the model is doing, in counts, and name a product where that would be acceptable and one where it would be a failure.

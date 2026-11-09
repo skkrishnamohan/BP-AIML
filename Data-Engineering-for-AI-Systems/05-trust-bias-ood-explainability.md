@@ -161,6 +161,24 @@ Lab 5: the baseline disparate impact is already a failure, and the distance-base
 
 ---
 
+## 🟡 A ten-row trust gate you can finish without the lab
+
+Imagine a slice of ten LoanLens rows, small enough to see the mechanism. Seven are group A, three are group B. Representation of B is 3/10 = 30%, which passes a 10% floor. So check 1 does not save you. A file can have enough people in it and still be unfair.
+
+Of the seven in A, six were historically approved. Of the three in B, one was approved.
+
+\[
+DI = \frac{1/3}{6/7} = \frac{0.333}{0.857} \approx 0.39
+\]
+
+That fails 0.80 by a wide margin. You do not need a model to know the labels are the problem. Training anyway means you have asked the model to learn 0.39.
+
+Suppose the only strong feature is postcode score, and the three group-B rows have scores 0.2, 0.3, and 0.1 while group A sits around 0.8. You do not need the exact correlation formula to see the proxy. Delete the group column and a tree’s first question will be “is postcode score high?” The groups will separate anyway. That is the entire content of “fairness through unawareness fails.”
+
+Now the weather twin, so PSI is not only a letter. Training humidity was about half the days in a 40–60% bin and almost none at 90–100%. This month, half the days are in 90–100% because a sensor stuck. The shares moved a lot. You do not compute the full PSI by hand in class. You notice the bin that used to be empty is now common, and you put the feature above the 0.25 band until someone shows you otherwise. Quarantine the partition. Do not retrain on the stuck sensor so that “high humidity” becomes the model’s new normal. If a technician replaces the sensor and the next week returns to the old bins, the PSI falls back and the old model was fine. The gate bought you that week.
+
+**What Clarify is doing in that story.** Before training, it can compute the disparate impact and the proxy-style associations on the table you were about to use. After training, it can compute them again on the model’s decisions, because a model can widen a gap the labels only suggested. Both reports are useless if the pipeline promotes the model either way. The gate is the line that says: DI below 0.8, or a proxy correlation at or above 0.5, and this version does not become the one the endpoint serves.
+
 ## Checkpoint
 
 Why did deleting the group column fail to remove the bias in LoanLens? Use the two numbers.

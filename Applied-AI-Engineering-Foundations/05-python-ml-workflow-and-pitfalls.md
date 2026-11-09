@@ -154,6 +154,16 @@ The pitfalls, said as symptoms:
 
 ---
 
+## 🟡 What “done” looks like in the insurance notebook
+
+A finished run is not a notebook that reached the last cell. It is a set of prints you can read back.
+
+You can say the row count. You can say which columns are in X and that `have_insurance` is not among them. You can say the education levels and which one was dropped as the reference. You can say whether income was divided by a constant or z-scored, and that the mean, if you used one, was computed after the split and only on train. You can say the loss after the first epoch and the loss after the last, and that it fell rather than exploded. You can point at one test row: the probability, the 0.5 decision or your own cutoff, the true label, and the cell of the matrix.
+
+If any of those sentences is “the notebook printed something,” the run is not done. The usual missing sentence is the one about when the scaler was fit. That is the sentence this class exists to force.
+
+**Regression, so the other metric is not only a name.** Five flats. The true prices are 40, 50, 60, 70, 80 lakh. A useless model predicts the average, 60, every time. Its errors are −20, −10, 0, 10, 20. Squared, 400, 100, 0, 100, 400. Mean of squares 200. RMSE is the square root, about 14.1 lakh. R² is 0, by definition, because you predicted the mean. A model that predicts 45, 55, 60, 65, 75 has smaller errors and a positive R². A model that predicts 80, 70, 60, 50, 40 is worse than the mean, and R² goes negative. Negative R² is allowed. It means “you would have done better by saying 60 every time.” Report it. Do not hide it by switching to training-set R², which this reversed model might still survive if it memorized.
+
 ## Checkpoint
 
 Explain, with the five incomes 10, 10, 10, 10, and 100, why `fit_transform` on all of them before the split has already used the test answer’s neighborhood. You do not need the word “leakage” in the first sentence. Say which number moved.

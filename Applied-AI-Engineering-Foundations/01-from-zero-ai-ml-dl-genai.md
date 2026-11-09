@@ -187,6 +187,36 @@ The difference the exam likes: training may take an hour and is allowed to see t
 
 ---
 
+## 🟡 A second pass: one product, three machines, so the circles stay separate
+
+Take a bank’s mobile app on a Monday morning. Three features ship in the same release, and students will call all three “the AI.”
+
+The GST line on a receipt is `amount × 0.18`. We can write the test before we write the code. If the amount is ₹1,000, the tax is ₹180, every time, in every city. There is no training set. There is no temperature. Wrapping it in a chat prompt would add a way for the answer to be ₹170 and sound confident. The machine is a rule. It lives in the outer circle only.
+
+The “you may like this credit card” ranking is ML. Historical customers who looked like this applicant either took the card or did not. That yes/no is y. Age, income band, and recent product views, if they exist before the offer is shown, are X. The model returns a probability. A cutoff, still a rule, decides whether to show the banner. This is the ML circle. It is not generative. Nothing new is being written. A person is being scored.
+
+The “explain this charge in two sentences” button is GenAI. The useful output is new language. The model must be handed the transaction row. If it is not handed the row, it will invent a merchant and a reason, because inventing the next tokens is the only act it has. Temperature near 0, a format (“two sentences, no advice”), and a human-visible source line are the controls. This is the inner circle. It does not replace the fraud score sitting next to it.
+
+Write the three side by side in the margin:
+
+| Button in the app | Output | Machine | What would make it the wrong machine |
+|-------------------|--------|---------|--------------------------------------|
+| Tax on the receipt | A legally fixed number | Rule | Any sampling |
+| Card offer | A probability, then a yes/no | Predictive ML | Judging it by how pleasant the wording is |
+| Explain this charge | A short paragraph | LLM, grounded on the row | Letting it answer with no row attached |
+
+If you can fill that table for a new app without looking back at the five quiz rows, this class has landed.
+
+## 🟡 Words students used loosely, and the sentence that replaces each one
+
+**“The AI decided.”** An AI system produced a score or a paragraph. A person, or a rule someone wrote, turned it into an action. Keep those two steps separate or you will not know what to change when the action is wrong.
+
+**“We will train ChatGPT on our data.”** Usually you will not. You will prompt a model, or you will retrieve your documents and put them in the prompt, or you will fine-tune. Training from empty weights is a different budget. Say which of the three you mean.
+
+**“It is accurate, so it understands.”** Accuracy is a fraction of labels matched. Understanding is not what the metric measures. A model can match labels by using a leaked column and understand nothing you could defend.
+
+**“Deep learning is the upgrade.”** It is a tool for raw signals where you cannot design the clues. On a five-column table it is often a more expensive way to overfit.
+
 ## Checkpoint
 
 Answer these before you open the next file. Say them in sentences.
