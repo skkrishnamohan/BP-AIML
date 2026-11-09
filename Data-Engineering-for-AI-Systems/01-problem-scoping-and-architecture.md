@@ -1,252 +1,175 @@
-# Session notes — Problem scoping & architecture
+# Class notes — Scoping the problem before anyone opens a file
 
-*Module 2 Session 1 — Week 3 / BITS deck.*
+*Module 2, Session 1. The Week 3 / BITS deck.*
 
-Architecture is the set of choices that are expensive to undo: what decision you serve, which data you trust, which systems sit between them, and which metric says the system may go live. This file explains those choices before any cleaning code.
-
----
-
-## 🟢 Frame before you build
-
-Answer **Who? What? Why? Where?** before touching data.
-
-| Question | WeatherWise example |
-|----------|---------------------|
-| **Who** | Farmers, airlines — who is harmed if wrong? |
-| **What** | P(rain > 1mm tomorrow at station S01) + metric (e.g. AUROC ≥ 0.75) |
-| **Why** | Fewer wasted irrigation cycles, fewer delays |
-| **Where** | Cloud batch vs real-time API vs edge |
-
-**Rule:** No metric + no decision = not ready to collect data.
-
-### What each question forces you to specify
-
-**Who.** Name the person who acts and the person who is hurt by a miss. For WeatherWise the actor might be an irrigation planner. The harmed person is the farmer whose crop dries out after a false “no rain” or whose water is wasted after a false “rain.” Airlines are a second actor with a different harm: delays and fuel. One model score can feed both only if you write both decisions down.
-
-**What.** The prediction must be specific enough to label. “P(rain > 1 mm tomorrow at station S01)” says the event (rain above 1 millimetre), the place, and the time. “Understand the weather” cannot be labeled. **AUROC ≥ 0.75** is the model quality bar in the example. AUROC is the area under the ROC curve: the probability that a random rainy day is scored higher than a random dry day. 0.5 is a coin toss. 1.0 is perfect ranking. 0.75 is a course threshold, not a universal definition of a good model.
-
-**Why.** Tie the score to an action with a benefit. If nobody skips an irrigation cycle or reroutes a flight, the AUROC never becomes value.
-
-**Where.** The runtime. **Batch** means score a file of stations overnight and deliver it by 6 a.m. An **API** (application programming interface) means another system calls you on demand. **Edge** means the model runs on a small device near the station, useful when the network is unreliable. The same math can sit in any of the three; the data pipeline cannot.
-
-**Why the rule is strict:** Without a metric you cannot tell whether cleaning helped. Without a decision you do not know which columns are legal features, because you do not know what “at prediction time” means.
+Module 1 ended with “define the problem.” This class refuses to let you skip it. Architecture, here, means the choices that are expensive to undo: which decision you serve, which data you are allowed to trust, which systems sit between them, and which number has to pass before anything goes live. A model name is not an architecture.
 
 ---
 
-## 🟢 WeatherWise data (three types, one question)
+## 🟢 Four questions, answered for WeatherWise
 
-| Modality | Data | Model family (start simple) |
-|----------|------|-----------------------------|
-| Tabular time series | Temp, humidity, pressure, wind | Gradient boosting / small NN |
-| Text | Forecaster bulletins | Embeddings + classifier; LLM for summaries |
-| Images | Radar | CNN / fine-tuned vision transformer |
+We do not open the CSV until these four have answers.
 
-**Multimodal fusion:** one encoder per type → concatenate or attention → P(rain).
+**Who.** The person who acts, and the person who is hurt if the action is wrong. For WeatherWise the actor might be an irrigation planner. The person hurt is the farmer: a false “no rain” dries the crop, a false “rain” wastes the water. Airlines are a second actor with a different hurt, delays and fuel. One score can feed both only if both decisions are written down. “Users” is not an answer.
 
-**Modality** means the kind of signal. A table, a paragraph, and an image are three modalities even though they describe one storm.
+**What.** The prediction, specific enough that a label exists. “Understand the weather” cannot be labeled. The class example is: the probability that rainfall at station S01 tomorrow exceeds 1 millimetre, and a quality bar such as AUROC at least 0.75.
 
-**Time series** means measurements indexed by time. Order matters. Yesterday explains today more than a random other day does.
+Say AUROC in a full sentence so it is not a badge. You take a random day that really rained and a random day that did not. AUROC is the probability that the model scored the rainy day higher. 0.5 means the ranking is chance. 1.0 means every rainy day outranks every dry day. 0.75 is the example bar in the story, not a law of nature. A product can need 0.9, or it can ship at 0.7 if the action is cheap to undo. The bar is part of the scope. It is not discovered after training.
 
-**Gradient boosting** builds trees one after another, each correcting the last. It is a strong default for tables. A **small NN** (neural network) is the alternative when you already expect interactions the trees are not worth tuning for. Start with boosting so you have a baseline.
+**Why.** The action and the benefit. Fewer wasted irrigation cycles. Fewer delays. If nobody’s morning changes, the AUROC never becomes value.
 
-**Embedding:** A list of numbers that places similar texts near each other. A classifier on those numbers can label a bulletin “fog” without an LLM writing a paragraph. Use the LLM when the product needs a new sentence, such as a summary for a pilot.
+**Where.** The runtime. **Batch** means score a file of stations overnight and deliver it by 6 a.m. An **API**, an application programming interface, means another system calls you at the moment of need. **Edge** means the model runs on a small computer near the station, which matters when the network fails. The same math can live in any of the three. The pipeline cannot. A stream of per-minute scores is wasted money if the farmer acts once at dawn.
 
-**CNN** means **convolutional neural network**, a vision model that scans local patterns such as edges of a rain band. **ViT** means **vision transformer**, a vision model that uses the transformer attention idea on image patches. Fine-tuning means you start from a model pretrained on many images and continue training on your radar.
-
-**Fusion:** Combine the three encoded vectors. **Concatenate** means stick them end to end and let a final model weigh them. **Attention** means the model learns when to trust the radar more than the bulletin. Fusion is optional until a single modality is not enough. Shipping three pipelines badly is worse than shipping one well.
+The rule from the front of the room: no metric and no decision means you are not ready to collect data. Without a metric you cannot tell whether cleaning helped. Without a decision you do not know which columns are legal, because you do not know what “at prediction time” means.
 
 ---
 
-## 🟡 5 Vs of data requirements
+## 🟢 Three kinds of weather data, and the temptation to fuse them on day one
 
-| V | Question |
-|---|----------|
-| **Volume** | MB/day vs TB/day → cost & tools |
-| **Velocity** | Batch file vs stream → Kinesis/IoT |
-| **Variety** | Table vs text vs image → different pipelines |
-| **Veracity** | How noisy/biased? Profile first |
-| **Rights** | Licence, consent, PII, retention |
+**Modality** means the kind of signal. WeatherWise has three, and they are not interchangeable.
 
-Also analyze: **sources**, ownership, export path.
+The **table** is a time series: temperature, humidity, pressure, wind, indexed by time. Order matters. Yesterday explains today more than a random other day does. The starting model family is gradient boosting or a small neural network. **Gradient boosting** grows trees one after another, each tree correcting the last. It is the strong default for a table, and it gives you a baseline a fancier model has to beat.
 
-The fifth V is sometimes listed as **value** in older “big data” slides. This course uses **rights**. Learn the course’s five.
+The **text** is the forecaster’s bulletin. If the output you need is a category such as fog or storm, start with an **embedding** and a classifier. An embedding is a list of numbers that places similar sentences near each other. You can measure precision and recall. If the output you need is a new paragraph for a pilot, then you have a writing task and a language model is appropriate, with a person or a citation on the result. Do not start with the language model for a labeled classification. Generation is the wrong first tool when the label already exists.
 
-| V | What it means | Why it changes the design | Where it shows up |
-|---|---------------|---------------------------|-------------------|
-| **Volume** | How much data per day | A laptop CSV dies at terabytes. You move to columnar files and distributed jobs. | S3 storage class and Athena cost |
-| **Velocity** | How fast new data arrives and how fast a decision is needed | A daily file can be batch. A sensor every second needs a stream. | Kinesis, IoT Core, Firehose |
-| **Variety** | How many shapes | One parser cannot clean radar and a CSV. | Separate raw prefixes per modality |
-| **Veracity** | How much you can believe the values | Noise and bias are properties of the data, not of the model. | Profiling before feature work |
-| **Rights** | Whether you may use it | A dataset without a licence or consent is not a shortcut. | Contracts, retention dates, PII review |
+The **image** is the radar. The starting families are a **CNN**, a convolutional neural network, which scans local patterns such as the edge of a rain band, or a **ViT**, a vision transformer, which applies the transformer idea to patches of the image. **Fine-tuning** means you start from a model that has already seen many images and continue training on your radar, rather than from empty weights.
 
-**MB** is megabyte, **TB** is terabyte (about a million megabytes). **IoT** is the Internet of Things, small connected sensors. **Kinesis** is AWS’s streaming service.
-
-**Ownership** means who is allowed to change a dataset and who answers when it is wrong. **Export path** means how a partner can leave with a copy, and what you must delete when they do.
+**Fusion** means combining the three. Each modality has an encoder. You either **concatenate**, stick the vectors end to end, or use **attention**, let the model learn when the radar deserves more trust than the bulletin. Fusion is how you get one P(rain) from three signals. It is also how you get three half-finished pipelines and no baseline. Ship one modality well before you fuse. The class example starts with the table, because the label and the metric are easiest to define there.
 
 ---
 
-## 🟡 User stories with data acceptance criteria
+## 🟡 The five V’s, using the course’s fifth
 
-Example story:
+Older “big data” talks list volume, velocity, variety, veracity, and value. This course replaces value with **rights**. Learn the course’s five. Value still matters. It is the “why” you already wrote.
 
-- **As** irrigation planner **I want** rain probability by 6am
-- **So that** I skip watering
-- **Accept:** AUROC ≥ 0.75, completeness ≥ 95%, humidity 0–100, bias report attached
+**Volume.** How much arrives per day. A megabyte fits in a laptop CSV. A terabyte does not. Volume pushes you to columnar files and to jobs that do not need the whole file in memory. It also shows up later as the Athena bill.
 
-**Tools mentioned:** Jira/Azure Boards + Confluence data contracts.
+**Velocity.** How fast data arrives, and how fast the decision is needed. Those are different clocks. A station can report every minute while the farmer acts once a day. Matching the pipeline to the station and ignoring the farmer is how teams build a stream nobody waits for. **Kinesis** is the AWS streaming service. **IoT** is the Internet of Things, the small connected sensors. IoT Core is where those messages enter AWS.
 
-**What a user story is:** A one-sentence requirement in the form “as a role, I want an outcome, so that a benefit.” It keeps the who and the why visible.
+**Variety.** Tables, text, and images need different parsers. One raw prefix per modality keeps a broken radar file from being fed to the CSV cleaner.
 
-**What an acceptance criterion is:** A test that says the story is done. AUROC is a model test. Completeness and humidity range are data tests. The bias report is a release test. If any one fails, the story is not done, even if the notebook ran.
+**Veracity.** How much you believe the values. Noise, bias, and sentinels are properties of the data. Profile them before you design features. A model will treat −999 as a temperature if you let it.
 
-**Completeness ≥ 95%** means at least 95% of the required values are present. It is a data-quality metric, not a model metric.
-
-**Data contract:** A written promise between the team that produces a table and the team that trains on it. It names columns, types, ranges, freshness, and what a breaking change is. Confluence is the document store named in class. Jira or Azure Boards tracks the work. The tool is not the point; the promise is.
-
-**Why stories beat “build a weather model”:** The acceptance line tells the cleaning lab which checks to automate. Humidity above 100 fails the story even if the model still trains.
+**Rights.** Licence, consent, PII, and how long you may keep the file. A dataset you are not allowed to train on is not a shortcut. Also write the owner, the person who answers when a column changes, and the export path, how a partner leaves with a copy and what you must delete when they do.
 
 ---
 
-## 🟡 Architecture frameworks (checklists, not religion)
+## 🟡 A user story that includes the data
 
-| Framework | Use |
-|-----------|-----|
-| **AWS Well-Architected** (ML + GenAI lenses) | Security, cost, reliability review |
-| **CRISP-DM** | Classic data mining phases |
-| **MLOps maturity** | Notebooks → pipelines → CT/CD |
-| **NIST AI RMF** | Govern, map, measure, manage |
+The story form is: as a role, I want an outcome, so that a benefit.
 
-**What a framework is here:** A checklist written by someone who has seen the failure before. It does not pick your model.
+As an irrigation planner, I want the rain probability by 6 a.m., so that I can skip watering.
 
-| Name | Expansion | What you actually do with it |
-|------|-----------|------------------------------|
-| **AWS Well-Architected** | A review method with pillars such as security, reliability, cost, and operations. The ML and GenAI lenses add model-specific questions. | Ask “who can read the raw bucket?” and “what does a bad endpoint cost per hour?” before launch |
-| **CRISP-DM** | Cross-Industry Standard Process for Data Mining | Business understanding → data understanding → preparation → modeling → evaluation → deployment. It is the older sibling of the AI lifecycle in Module 1. |
-| **MLOps maturity** | How repeatable the machine-learning operation is | Level 0 is a notebook. Later levels are scheduled pipelines, tests, and continuous training. |
-| **CT** | Continuous training | Retraining when data or schedule says so, not only when a human remembers |
-| **CD** | Continuous delivery | A tested path from a new model version to a deployed endpoint |
-| **NIST AI RMF** | National Institute of Standards and Technology AI Risk Management Framework | Govern (policies), map (context and risks), measure (metrics and tests), manage (act on the measurements) |
+The **acceptance criteria** are the tests that say the story is done. The class example stacks four different kinds of test on purpose:
 
-**Where students overuse them:** Quoting the framework name in a design doc without answering who, what, why, and where. Use the checklist to find a hole, then write the decision in plain language.
+- AUROC at least 0.75. That is a model test.
+- Completeness at least 95%. **Completeness** is the share of required values that are present. That is a data test.
+- Humidity between 0 and 100. That is a contract test, and it is the reason the cleaning lab has a range rule.
+- A bias report attached. That is a release test.
+
+If the notebook ran and the humidity rule failed, the story is not done.
+
+A **data contract** is the written promise between the people who produce the table and the people who train on it: column names, types, ranges, freshness, and what counts as a breaking change. The slides mention Jira or Azure Boards for the work and Confluence for the document. The tool is not the lesson. The promise is. A renamed humidity column should fail a job, not silently train on an empty feature.
 
 ---
 
-## 🟡 Batch ML reference architecture (AWS)
+## 🟡 Frameworks are checklists
+
+A framework will not pick your model. It reminds you of a hole.
+
+**AWS Well-Architected**, with the machine-learning and generative-AI lenses, is a review across security, reliability, cost, and operations, plus questions those lenses add for models. Use it to ask who can read the raw bucket, and what a bad endpoint costs per hour, before launch.
+
+**CRISP-DM** is the Cross-Industry Standard Process for Data Mining: business understanding, data understanding, preparation, modeling, evaluation, deployment. It is the older sibling of the AI lifecycle from Module 1. If you have done Module 1, you have already met it under another name.
+
+**MLOps maturity** describes how repeatable the operation is. The bottom is a notebook on one laptop. Higher up are scheduled pipelines, tests, and continuous training. **CT** is continuous training, retraining when data or a schedule says so. **CD** is continuous delivery, a tested path from a new model version to a deployed endpoint. Do not claim a maturity level you do not have. “We have a notebook” is a respectable level 0 if you say it plainly.
+
+**NIST AI RMF** is the National Institute of Standards and Technology AI Risk Management Framework. Four verbs: govern (write the policy), map (describe the context and the risks), measure (the metrics and the tests), manage (act on the measurements). It is the responsible-AI pillars turned into a management cycle.
+
+Quoting a framework in a design document, without answering who, what, why, and where, is how this class fails. Use the checklist to find a missing answer. Then write the answer in ordinary language.
+
+---
+
+## 🟡 The batch picture on AWS, and who owns which half
 
 ```
-Sources → Ingest (Glue/Firehose) → S3 raw/clean/curated + Glue Catalog
-      → Prepare (DataBrew, Data Wrangler) → SageMaker Train
-      → Model Registry → Endpoint/Batch Transform → Monitor
+Sources → Ingest (Glue or Firehose) → S3 raw / clean / curated, plus the Glue Catalog
+       → Prepare (DataBrew or Data Wrangler) → SageMaker training
+       → Model Registry → Endpoint or Batch Transform → Monitor
 ```
 
-**Data engineering owns the top; MLOps owns the bottom; they meet at curated zone.**
+Data engineering owns the top, through the curated zone. MLOps owns the bottom, from training onward. They meet at curated data. If training reads from `raw/`, every model reruns yesterday’s defects, and the two teams do not share a contract.
 
-| Piece | What it is | Why it is in the picture |
-|-------|------------|--------------------------|
-| **Glue** | Serverless data integration and a data catalog | Scheduled transforms and a list of tables other tools can query |
-| **Firehose** | A delivery stream into S3 | Lands streaming records as files without you running a server |
-| **Glue Catalog** | The metadata directory | Athena and others need names, columns, and locations |
-| **DataBrew** | A visual data-prep tool | Cleaning without writing every step from scratch |
-| **Data Wrangler** | SageMaker’s data-prep interface | The same job closer to the training environment |
-| **SageMaker** | AWS’s model training and hosting platform | Train, register, and serve |
-| **Model Registry** | A versioned list of models and their approval state | So production points at a specific model, not “whatever was in the notebook” |
-| **Endpoint** | A live API that scores one request or a small batch | Real-time path |
-| **Batch Transform** | Score a whole file, then stop | The 6 a.m. weather path |
-| **Curated zone** | The feature-ready, versioned data | The handoff. Data engineering says “this table meets the contract.” MLOps says “we trained on this version.” |
+The names, once each:
 
-**Why the meeting point matters:** If training reads from `raw/`, every model reruns yesterday’s defects and the two teams cannot blame the same contract. Curated is the agreed table.
+| Name | What it is for |
+|------|----------------|
+| Glue | Serverless data jobs, and the catalog of tables |
+| Firehose | Delivers a stream into S3 as files, without you running a server |
+| Glue Catalog | The directory: table name, columns, and the S3 location. Athena and others need it. |
+| DataBrew | Visual data preparation |
+| Data Wrangler | SageMaker’s data-preparation interface, closer to the training environment |
+| SageMaker | Train, register, and serve models |
+| Model Registry | A versioned list of models and whether each one is approved. Production points at a version, not at “whatever was in the notebook.” |
+| Endpoint | A live API that scores a request |
+| Batch Transform | Score a whole file, then stop. This is the 6 a.m. weather path. |
+| Curated zone | The feature-ready, versioned table. The handoff. |
 
 ---
 
-## 🟡 GenAI RAG architecture
+## 🟡 RAG, drawn as a path rather than as a product
+
+Retrieval-augmented generation is what we promised in Module 1 when we said a language model is not a database.
 
 ```
-Docs in S3 → chunk + embed → vector store → user query → retrieve top-k → LLM + guardrails → answer with citations
+Documents in S3 → cut into chunks → embed each chunk → store the vectors
+User question → embed the question → retrieve the top k chunks
+→ prompt the LLM with those chunks and a guardrail → answer, with citations
 ```
 
-**Bedrock Knowledge Bases** packages much of the left side — you still own **data quality in**.
+A **chunk** is a piece small enough to embed and to fit in the prompt, often a few hundred tokens, with some overlap so a sentence cut in half can still be found. **Top-k** means “return the k nearest chunks.” Too small and you miss the paragraph that had the exception. Too large and you bury the model in noise and cost. A **citation** is the passage id or the link. Without it, the answer collapses back into an ungrounded paragraph that happens to sit next to real documents.
 
-**What RAG is:** Retrieval-augmented generation. The LLM is not asked to remember your policy. A search step finds the relevant chunks, and the prompt includes those chunks. The model writes from them.
-
-**Chunk:** A piece of a document small enough to embed and to fit in a prompt, often a few hundred tokens with some overlap so a sentence cut in half is still found.
-
-**Embed:** Turn the chunk into a vector. Similar meanings land nearby.
-
-**Vector store:** A database that can answer “which stored vectors are closest to this query vector?”
-
-**Top-k:** Return the k nearest chunks. k that is too small misses context. k that is too large buries the model in noise and cost.
-
-**Citation:** A link or passage id so a human can check the claim. Without it, RAG collapses back into an ungrounded paragraph.
-
-**Guardrails:** Filters on the question and the answer, plus a rule to say “not in the documents” instead of inventing.
-
-**Bedrock** is AWS’s managed foundation-model service. **Knowledge Bases** is its packaged RAG path: ingest, chunk, embed, and retrieve. Packaging does not clean a wrong bulletin or a duplicated policy. Garbage in still means a confident, cited, wrong answer.
+**Guardrails** filter the question and the answer, and they include the instruction to say “not in the documents” rather than invent. **Bedrock** is AWS’s managed foundation-model service. **Knowledge Bases** is its packaged version of the left half of the diagram: ingest, chunk, embed, retrieve. Packaging does not clean a duplicated policy or a wrong bulletin. A cited wrong sentence is still wrong. You own the quality of what goes in.
 
 ---
 
-## 🟡 LLM → agent ladder
+## 🟡 The ladder from a language model to a crowd of agents
 
-1. **LLM** — answers from training
-2. **+ RAG** — looks up your docs
-3. **+ Tools** — calls APIs
-4. **Agent** — plans multi-step loops
-5. **Multi-agent** — specialists collaborate
+Move one rung to the right only when the rung you are on cannot do the job. Each rung adds a behavior you must test.
 
-Each step adds power **and risk** — only move right when needed.
+1. **The LLM alone** answers from its training. The risk is hallucination. Stay here to draft, with a reviewer.
+2. **Plus RAG** answers from your files. The new risk is retrieving the wrong chunk and sounding sourced.
+3. **Plus tools** calls a calculator, a database, or a weather API. The new risk is a bad argument that changes real data.
+4. **An agent** chooses the next tool call in a loop, because the steps are not known in advance. The new risks are runaway loops and actions nobody can replay.
+5. **Several agents** split research, critique, and execution. The new risks are cost, contradiction, and no single owner.
 
-**MCP** = agent ↔ tools; **A2A** = agent ↔ agent.
-
-| Rung | What it can do | The new risk | Stay here if |
-|------|----------------|--------------|--------------|
-| LLM | Continue a prompt | Hallucination | The task is drafting and a human reviews |
-| RAG | Answer from your files | Retrieves the wrong chunk and sounds sourced | The facts live in documents |
-| Tools | Call a calculator, a database, or a weather API | A bad argument changes real data | You need a live number, not a remembered one |
-| Agent | Decide the next tool call in a loop | Runaway loops, hidden actions, hard-to-test plans | The steps are not known in advance |
-| Multi-agent | Split research, critique, and execution | Cost, contradiction, and nobody accountable | One agent’s context is genuinely overloaded |
-
-**MCP** means **Model Context Protocol**, a standard way for an agent to discover and call tools. **A2A** means **agent-to-agent**, a way for agents to hand work to each other. They are interfaces. They do not make the underlying action safe.
-
-**Why “only move right when needed”:** Each rung is harder to evaluate. A single prompt has one input and one output. An agent has a tree of actions. Do not take that test burden on to summarize a PDF you could have chunked.
+**MCP**, the Model Context Protocol, is a way for an agent to discover and call tools. **A2A**, agent-to-agent, is a way for agents to hand work to each other. They are interfaces. They do not make the action safe. Do not take an agent loop on to summarize a PDF you could have chunked.
 
 ---
 
-## 🟡 Cloud strategy (three patterns)
+## 🟡 Three ways to sit on a cloud
 
-1. **One vertical stack** (e.g. all AWS) — fast, more lock-in
-2. **Tools-first** — pick cloud that supports required services
-3. **Open-source core** (K8s, MLflow, Airflow, DVC) — portable, you operate it
+**One vertical stack**, for example all of AWS. You move fast because S3, Glue, and SageMaker already know each other. You pay in **lock-in**: leaving means rewriting the pipeline. The labs are this pattern, so you can finish them.
 
-| Pattern | What you gain | What you pay |
-|---------|---------------|--------------|
-| **Vertical stack** | Services that already connect: S3 to Glue to SageMaker | Switching clouds means rewriting the pipeline. That cost is **lock-in**. |
-| **Tools-first** | You start from a required capability (“we need managed labeling”) and pick the cloud that has it | A mixed estate to operate |
-| **Open-source core** | Kubernetes, MLflow, Airflow, and DVC run on more than one cloud | Your team runs upgrades, scaling, and security |
+**Tools first.** You start from a required capability, such as managed labeling, and you pick the place that has it. You then operate a mixed estate.
 
-**K8s** is Kubernetes, a system for running containers. **Airflow** schedules pipelines. **MLflow** tracks experiments and models. **DVC** versions large files with Git pointers.
+**An open-source core.** Kubernetes, MLflow, Airflow, and DVC run on more than one cloud. **Kubernetes** (K8s) runs containers. **Airflow** schedules pipelines. **MLflow** tracks experiments and models. **DVC** versions large files. You gain portability and you pay by operating the upgrades, the scaling, and the security yourself.
 
-**Where the course labs sit:** They are pattern 1 so you can finish a lab. The notes still name pattern 3 so you recognize a portable design when you see one.
+None of the three is a moral position. Write down which one you chose and what you are giving up. That note is an architecture decision.
 
 ---
 
-## 🟢 Model family chooser (shape of data)
+## 🟢 Picking a model family from the shape, one more time
 
-Pick from **data shape**, not hype:
+Tables start with classical ML or boosting. Sequences, if a table with lag features is not enough, can use an **LSTM** (long short-term memory, an older sequence network) or a transformer. Text uses embeddings for classification and an LLM for writing or for question answering over documents. Images use a CNN or a ViT.
 
-- Tables → classical ML / boosting
-- Sequences → LSTM/transformer if needed
-- Text → embeddings; LLM for generation/Q&A
-- Images → CNN/ViT
-
-**LSTM** means **long short-term memory**, an older neural network for sequences. Transformers have replaced LSTMs for many language tasks. For a short weather table, neither is the starting point; a boosted tree with lag features is.
-
-**Why shape beats hype:** The shape tells you what a row means and which leakage is possible. A headline does not.
+For a short weather table, the LSTM is not the start. Lag features and a boosted tree are the start. Shape beats the headline, because the shape tells you what a row means and which leakage is possible.
 
 ---
 
 ## Checkpoint
 
-For WeatherWise bulletins only, would you start with an LLM or embeddings + classifier?
+You have only the forecaster bulletins, and the product needs each bulletin tagged clear, cloudy, rain, fog, or storm. Would you start with a language model or with embeddings plus a classifier? Say what you would be unable to measure if you chose the other one.
 
-**Answer:** Start with embeddings plus a classifier if the output is a category such as fog, rain, or storm. You have labels, you can measure precision and recall, and the result is stable. Use an LLM when the output must be a new paragraph, such as a briefing, and keep a human or a citation check on it. Generation is the wrong first tool for a labeled classification task.
+Start with embeddings and a classifier. You have labels, so you can measure precision and recall and you can compare annotators. A language model is the right tool when the deliverable is a new paragraph, such as a briefing, and even then a person or a citation stays on it. If you start with generation, you have nothing stable to score against the five classes. You have a different paragraph every time.
 
-**Next:** [02-data-collection-ingestion-lifecycle.md](02-data-collection-ingestion-lifecycle.md)
+**Next class:** [02-data-collection-ingestion-lifecycle.md](02-data-collection-ingestion-lifecycle.md)

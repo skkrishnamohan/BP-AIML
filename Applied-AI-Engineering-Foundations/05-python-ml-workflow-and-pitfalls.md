@@ -1,48 +1,36 @@
-# Session notes — Python ML workflow (NumPy → sklearn → production habits)
+# Class notes — The Python workflow, and the bugs that look like ordinary code
 
-*Based on: Student Guide phases 18–20, Tools reading, insurance coding PDF.*
+*Student guide phases 18–20, the tools reading, and the insurance coding PDF.*
 
-This file turns the previous theory into a repeatable code path. The goal is not to memorize every function. The goal is to know **what** each tool owns, **why** the order of operations matters, and **where** leakage hides in ordinary-looking code.
-
----
-
-## 🟢 Tool stack (learn in this order)
-
-| Tool | Role |
-|------|------|
-| **Python 3.9+** | Language |
-| **venv / conda** | Isolated environments |
-| **NumPy** | Fast arrays, math |
-| **Pandas** | Tables, CSV, cleaning |
-| **Matplotlib / Seaborn** | Plots to debug data |
-| **scikit-learn** | Classical ML + preprocessing |
-| **Jupyter** | Experiments |
-| **Git** | Version code |
-
-Later: PyTorch/TensorFlow, MLflow, Docker, FastAPI, monitoring (Module 2+ / MLOps).
-
-### What each tool is for, and what it is not
-
-| Tool | Full name or meaning | What it does | What people mistakenly use it for |
-|------|----------------------|--------------|-----------------------------------|
-| **Python** | The language | Glue: load data, call libraries, serve results | A substitute for understanding the split and the metric |
-| **venv** | Virtual environment | A private set of package versions for one project | Optional decoration. Without it, one project’s upgrade breaks another. |
-| **conda** | A package and environment manager | Same job as venv, plus non-Python libraries | Required for every lab. Either tool is fine if the environment is recorded. |
-| **NumPy** | Numerical Python | Arrays and vectorized math, the thing neural-net code sits on | A spreadsheet. You do not clean messy CSV column names here. |
-| **Pandas** | Panel data library | Tables (`DataFrame`), CSV, missing values, group-bys | Training the model. Pandas prepares rows; sklearn learns weights. |
-| **CSV** | Comma-separated values | A plain-text table | A safe production store. Fine for class labs; Module 2 moves to Parquet and S3. |
-| **Matplotlib / Seaborn** | Plotting libraries | See distributions, missingness, and errors | Proof the model works. A pretty chart is not a test metric. |
-| **scikit-learn** | The classical ML library, imported as `sklearn` | Splits, preprocessing, models, metrics | Deep learning or LLM training. |
-| **Jupyter** | Notebook interface | Run a cell, look at the table, change one thing | A production deploy. Notebooks hide state. Pipelines rerun from the top. |
-| **Git** | Version control | History of code | A place to dump a 2 GB dataset. Data versions belong to DVC or object storage later. |
-
-**Why this order:** You cannot interpret a model you cannot load, and you cannot trust a model whose tables you have never plotted. Algorithms come after you can open the file and see a surprising value.
-
-**Where the later tools fit:** **PyTorch** and **TensorFlow** train neural networks. **MLflow** records experiments. **Docker** packages the environment so another machine runs the same code. **FastAPI** serves predictions over HTTP. You do not need them to finish Module 1, and you should know their names so the roadmap is not a surprise.
+You can now do one neuron by hand and you can compute precision on a hundred rows. This class puts that story into the libraries the labs actually run. The failure mode is not a wrong import. It is a correct import, called in an order that peeks at the exam.
 
 ---
 
-## 🟢 Core sklearn pattern
+## 🟢 The tools, in the order you should meet them
+
+Learn them in this order because each one answers a question the next one assumes.
+
+**Python 3.9 or newer** is the language that glues the rest together. It will not choose your split or your metric for you.
+
+**venv** or **conda** is an isolated environment. A virtual environment is a private set of package versions for one project. Without it, upgrading scikit-learn for a new lab changes the old lab. Conda does the same job and also installs non-Python libraries. Either is fine. “It worked on my laptop” is the symptom of skipping both.
+
+**NumPy** is Numerical Python. It holds arrays and does the vectorized math that a weight update is made of. You do not clean messy column names here.
+
+**Pandas** holds a table, called a `DataFrame`. It reads a **CSV** (comma-separated values), finds missing entries, and selects columns. Pandas prepares rows. It does not learn weights. A CSV is fine for a class file and a poor production store. Module 2 moves the same table to Parquet on S3.
+
+**Matplotlib** and **Seaborn** draw the pictures you use to debug data: a histogram that shows a spike at −999, a count of missing values. A pretty chart is not a test metric.
+
+**scikit-learn**, imported as `sklearn`, is the classical ML library: the split, the preprocessing, the models, and the metrics. It is not a deep-learning library and it is not an LLM.
+
+**Jupyter** is the notebook where you run one cell and look at the table. It is the right place to learn and a bad place to deploy, because a notebook remembers whatever you ran earlier, including a cell you have since deleted in your head.
+
+**Git** versions the code. It is the wrong place for a two-gigabyte CSV. Data versions belong to DVC or object storage, which is Module 2.
+
+Later names, so the roadmap is not a surprise. **PyTorch** and **TensorFlow** train neural networks. **MLflow** records experiments. **Docker** packages the environment so another machine runs the same code. **FastAPI** serves predictions over HTTP. You do not need them to finish this module. You need to know which problem each one is for, so you do not reach for FastAPI when the bug is leakage.
+
+---
+
+## 🟢 The ten-line pattern, narrated
 
 ```python
 from sklearn.model_selection import train_test_split
@@ -62,165 +50,114 @@ print(confusion_matrix(y_test, y_pred))
 print(classification_report(y_test, y_pred))
 ```
 
-**What `max_iter=2000` is:** The maximum number of optimization steps. It is a **hyperparameter**, not a learned weight. If the solver stops early you see a convergence warning. Raising it lets the fit finish. It does not make a wrong problem right.
+Read it as a story, not as a spell.
 
-**Why `fit` then `predict` are separate:** `fit` is allowed to read `y_train`. `predict` must not read `y_test`. Keeping them as two calls makes that wall visible.
+The split happens before any learning. `test_size=0.2` holds out a fifth. `stratify=y` keeps the class mix. `random_state=42` makes the shuffle repeatable.
 
-**How to read the prints:** Accuracy is one number. The confusion matrix shows which species or which class was confused. The classification report gives precision, recall, and F1 per class, plus **support**, which means how many true rows of that class were in the test set. A class with tiny support can show a wild precision by chance.
+`LogisticRegression` is a classifier even though the name says regression. It models the log-odds, which is a continuous number, and the decision you take is a class. Do not put it in the regression column of your notes when y is yes/no.
 
-**Where this snippet is incomplete for real tables:** It assumes `X` is already numeric. Cities, missing values, and income scales need a pipeline, below.
+`max_iter=2000` is a hyperparameter: the maximum number of solver steps. If you see a convergence warning, the fit stopped early and raising this number lets it finish. It does not repair a wrong target.
 
----
+`fit` is allowed to read `y_train`. `predict` must not read `y_test`. Two calls, so the wall is visible.
 
-## 🟡 Preprocessing (insurance / have_insurance lab)
+Then print three things. Accuracy is one number and, as of last class, it can lie. The matrix shows the cells. The classification report gives precision, recall, and F1 per class, plus support. This snippet still assumes X is already numeric. Cities, blanks, and income in rupees need the pipeline below. Do not pretend this snippet is the production pattern.
 
-From your coding reading material, the **story** is:
-
-1. Load CSV with `pandas`
-2. Select features: age, income, education
-3. Scale income (÷ 1000) so magnitudes match
-4. **One-hot** education (`get_dummies`, `drop_first=True` avoids redundant columns)
-5. Add **bias column** of ones for matrix math (if coding from scratch)
-6. Train logistic regression with **gradient descent** OR use sklearn
-
-**Why drop_first?** Prevents “dummy variable trap” (columns sum to 1).
-
-### What the insurance story is teaching
-
-The target `have_insurance` is binary. The features are a mix of a number (age, income) and a category (education). The lab exists so you see the same logistic regression from Module 1’s neuron, either written as a loop or called from sklearn.
-
-**Dividing income by 1000** is a simple scale so income and age are similar sizes. A z-score is the more general version. Both are preprocessing, and both must be defined from training data only. Dividing by a constant you chose (1000) is safe. Computing a mean on the full file is not.
-
-**`get_dummies`:** Pandas’ one-hot encoder. Education levels become columns. **`drop_first=True`** drops one level so the remaining columns are comparisons against that reference level. If Bachelor, Master, and PhD columns are all 0, the person is the dropped level.
-
-**Dummy variable trap:** If the columns sum to 1 for every row, they are a perfect copy of a column of ones (the bias). The optimizer then cannot tell bias and education apart. Coefficients become unstable. Dropping one column removes the perfect copy.
-
-**Bias column of ones:** When you code the math yourself, \(z = w \cdot x + b\) can be written as one dot product by appending a 1 to `x` and treating `b` as just another weight. Sklearn already includes the intercept. Adding a column of ones *and* using sklearn’s intercept double-counts it. Know which implementation you are in.
-
-**Where the two implementations should agree:** Same split, same encoding, enough iterations. The weights will match in direction even if the solver is not identical. If handmade gradient descent diverges, the learning rate is too big or the features are unscaled.
+`predict_proba` is the call that returns the probability. `predict` applies 0.5. For fraud you usually want the probability and your own cutoff.
 
 ---
 
-## 🔴 Professional pipeline pattern
+## 🟡 The insurance lab, as a story rather than a script
 
-**Never** scale or encode **before** split.
+The target is `have_insurance`, yes or no. The features are age, income, and education. The lab exists so you either write the gradient step yourself or call sklearn and see that it is the same problem.
 
-Correct pattern:
+The honest sequence:
 
-1. Split train/test
-2. `fit()` imputer/scaler **on train only**
-3. `transform()` train and test
-4. Bundle in **Pipeline** + **ColumnTransformer**
+1. Load the CSV with pandas. Print the row count, the dtypes, and a few education values. Education is text until you encode it.
+2. Separate X and y. If `have_insurance` is still a column of X, stop. That is leakage by copy-paste.
+3. Split.
+4. Scale income so it does not drown age. Dividing by 1000 is a constant you chose, so it does not peek at the test set. Computing a mean on the full file does peek. A z-score fit on train only is the general version.
+5. One-hot encode education. In pandas, `get_dummies(..., drop_first=True)`.
+6. If you are coding the math yourself, append a column of ones so the bias is just another weight. If you are calling sklearn, do not also add that column. Sklearn already fits an intercept. Doing both double-counts it.
+7. Train, either with your loop or with `LogisticRegression`.
+8. Evaluate on the test rows with a matrix, not only with accuracy.
 
-**Must-know checklist from student guide:**
+**Why `drop_first=True`.** Suppose education has three levels and you keep all three dummy columns. On every row they add up to 1. A column of ones is exactly the bias term. The optimizer has two ways to write the same score, so the weights wander. That is the **dummy-variable trap**. Dropping one level makes the others “compared with the dropped level.” All zeros means the dropped level.
 
-- `train_test_split`
-- `Pipeline`, `ColumnTransformer`
-- `SimpleImputer`, `OneHotEncoder`, `StandardScaler`
-- `cross_val_score`
-- `GridSearchCV` / `RandomizedSearchCV`
-- `classification_report`, `confusion_matrix`
+If your handmade loss explodes, the learning rate is too big or income is still in rupees. If the loss falls and the sklearn metrics land in a similar range on the same split, you have connected the board-work to the library. The weights will not match to the last decimal, because the solvers differ. The direction of the story should match.
 
-### What these objects protect you from
+Use log loss in the handmade loop, not squared error. Squared error is the natural pain for a price. Log loss is the pain for a probability that was confident and wrong. The formula is in the previous class notes. Print the loss after one epoch. It should usually fall. If it does not, do not add epochs. Fix the scale or the step size.
 
-| Object | What it is | Why it exists |
-|--------|------------|---------------|
-| **`SimpleImputer`** | Fills missing values with a statistic such as the median | A blank is not a number the model can multiply. The median must come from train. |
-| **`StandardScaler`** | Z-score: subtract mean, divide by standard deviation | Stops large-unit columns from dominating |
-| **`OneHotEncoder`** | Sklearn’s version of dummy columns | Belongs in the pipeline so the category list is learned on train. An unseen city at test time has a defined policy (`handle_unknown`) |
-| **`ColumnTransformer`** | Applies different steps to different columns | Scale income; one-hot city; leave an already-encoded flag alone |
-| **`Pipeline`** | A chain of transform → transform → model | `fit` runs every step in order on train. `predict` runs the same transforms with frozen statistics, then the model. You cannot forget and scale the test set with the test mean. |
-| **`cross_val_score`** | Repeats fit/score across folds | A more stable estimate, and it refits the whole pipeline per fold if you pass the pipeline |
-| **`GridSearchCV`** | Tries a grid of hyperparameters with cross-validation | Picks settings using validation folds, not the final test set |
-| **`RandomizedSearchCV`** | Tries a random subset of that grid | Same idea when the grid is too large to finish |
+---
 
-**`fit` vs `transform` vs `fit_transform`:** `fit` learns statistics. `transform` applies them. `fit_transform` does both, and it is correct on the training fold only. Calling `fit_transform` on the full dataset, or on the test set, refits the statistics in the wrong place.
+## 🔴 The professional order, and the bug written out
 
-**Where the bug looks innocent:**
+Never scale or encode before the split. The correct order is:
+
+1. Split train and test.
+2. `fit` the imputer and the scaler on the training rows only. Fit means “learn the statistic.”
+3. `transform` both the training rows and the test rows with that frozen statistic.
+4. Put the steps in a **Pipeline** so the order cannot be forgotten.
+
+`fit_transform` does both, and it is legal on the training fold only. These two lines are the bug, even though they look tidy:
 
 ```python
-X_scaled = scaler.fit_transform(X)          # learns mean from future test rows
-X_train, X_test = train_test_split(X_scaled)
+X_scaled = scaler.fit_transform(X)           # the mean includes the future exam
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, random_state=42)
 ```
 
-The test rows helped decide the mean and variance. The model has peeked at the exam. Do this instead: split first, `fit` on train, `transform` both.
+Suppose five incomes: 10, 10, 10, 10, and 100. The mean of all five is 28. The mean of the first four, if those are the training rows, is 10. The test income of 100 has pulled the training mean from 10 up to 28. Every training row is now scaled with a number that knows about the exam. On a real file the damage is quieter and the accuracy moves the wrong way: up. That upward move is the smell of leakage.
+
+The objects you are expected to recognize:
+
+| Object | What it learns on fit | Why it has to be inside the pipeline |
+|--------|----------------------|--------------------------------------|
+| `SimpleImputer` | A fill value, often the median | A blank is not a number. The median of the test rows is not allowed to help. |
+| `StandardScaler` | Mean and standard deviation | This is the z-score. Same rule. |
+| `OneHotEncoder` | The list of categories | An unknown city at test time needs a policy (`handle_unknown`), not a crash and not a refit. |
+| `ColumnTransformer` | Nothing by itself | It applies the scaler to income and the encoder to city, instead of scaling a column of city names. |
+| `Pipeline` | The chain, in order | `fit` trains every step on train. `predict` replays the frozen steps and then the model. |
+
+`cross_val_score` repeats that whole pipeline across folds. Pass it the pipeline, not the model alone, or the scaler will have been fit outside the fold.
+
+`GridSearchCV` tries a grid of hyperparameters using cross-validation, so the choice of tree depth or of `C` is not made by peeking at the final test set. `RandomizedSearchCV` tries a random subset when the grid is too large. **`C`** in logistic regression is the inverse of regularization strength. Smaller `C` means a stronger penalty on large weights, a simpler model, less memorizing. Remember the direction. There is no magic value.
+
+After the search is frozen, the test set is used once.
 
 ---
 
-## 🟡 Parameters vs hyperparameters
+## 🟡 Parameters, regression metrics, and the other pitfalls
 
-| | Parameters | Hyperparameters |
-|---|------------|-----------------|
-| **Examples** | Learned weights | `max_iter`, tree depth, learning rate |
-| **Set when?** | During `.fit()` | Before training |
-
-**What a parameter is:** A number inside the model that gradient descent (or another solver) changes. You do not type the final weights.
-
-**What a hyperparameter is:** A choice about the learning procedure or the model shape, made before `fit`. Tree depth, regularization strength `C` in logistic regression, and learning rate are hyperparameters.
-
-**Why the distinction matters:** Searching hyperparameters on the test set turns the test set into training data. `GridSearchCV` keeps that search inside training folds. The final test score happens after the search is frozen.
-
-**`C` in logistic regression:** Inverse of regularization strength. Smaller `C` means a stronger penalty on large weights, a simpler model, and less overfitting. The letter is historical. Remember the direction, not a magic value.
-
----
-
-## 🔴 Critical pitfalls
-
-| Pitfall | What goes wrong |
-|---------|------------------|
-| **Data leakage** | Test info in training → fake high scores |
-| **Leakage via scaling** | Fit scaler on full dataset |
-| **Repeated test tuning** | Test set becomes part of training |
-| **Wrong metric** | Optimizing accuracy on imbalanced data |
-
-**How repeated test tuning happens:** You train, look at the test accuracy, add a feature, look again, change depth, look again. After twenty looks, you have selected the model that got lucky on these particular test rows. Report that number as exploration, then evaluate once on a set you did not use to choose.
-
-**Where wrong-metric leakage of attention happens:** The code is honest and the conclusion is not. Accuracy 0.99 on 1% fraud will pass a unit test you wrote against accuracy. Put the business metric in the evaluation cell so the notebook cannot “pass” while catching nothing.
-
----
-
-## 🟡 Regression vs classification (sklearn)
+A **parameter** is learned during `fit`: the weights. A **hyperparameter** is chosen before `fit`: `max_iter`, tree depth, learning rate, `C`. Searching hyperparameters against the test score is the slow way to leak. You look, you tweak, you look again. After twenty looks the test rows have selected the model. Report that number as exploration. The number you publish comes from a set you did not use to choose.
 
 | | Regression | Classification |
-|---|------------|----------------|
-| **Goal** | Number | Category |
-| **Models** | LinearRegression, Ridge | LogisticRegression, RandomForest |
-| **Metrics** | RMSE, R² | Accuracy, P/R/F1 |
+|--|------------|----------------|
+| y | A number | A category |
+| Models you will see | `LinearRegression`, `Ridge` | `LogisticRegression`, `RandomForest` |
+| Metrics | RMSE, R² | Accuracy, precision, recall, F1 |
 
-**Threshold:** Default 0.5 for probability is not sacred — tune for business cost.
+**RMSE** is the root mean squared error. Subtract predicted from actual, square the differences so that negative errors count, average them, and take the square root so the unit is rupees or minutes again. Squaring means one wild miss hurts more than several small ones.
 
-**RMSE** means **root mean squared error**. Take the differences between predicted and actual numbers, square them (so negatives count), average them, and take the square root so the unit matches the target (rupees, minutes, megawatts). Big mistakes count extra because of the square.
+**R²** is the fraction of the variation in y that you explain beyond simply predicting the average every time. 1 is a perfect fit. 0 is no better than the average. Negative is worse than predicting the average. A high R² on the training rows is not a result.
 
-**R²** (R-squared) is the fraction of variance in `y` that the model explains compared with predicting the average every time. 1 is a perfect fit. 0 is no better than the average. Negative means worse than predicting the average. A high R² on training data alone is not a result.
+**Ridge** is linear regression plus a penalty on large weights. **RandomForest** is many decision trees, each trained on a random subset of rows and features, voting together. It can represent bends that one logistic regression cannot, and it can still overfit.
 
-**Ridge** is linear regression plus a penalty on large weights. It is the regression cousin of regularized logistic regression.
+The pitfalls, said as symptoms:
 
-**RandomForest** is an ensemble of decision trees, each trained on a random subset of rows and features. The trees vote. It handles non-linear patterns and is still a classical ML model.
+| What you did | What you will see |
+|--------------|-------------------|
+| Any form of leakage | A score that collapses when the leaked column is removed, or that collapses in production |
+| Fit the scaler on the full file | A quietly optimistic test score |
+| Tuned twenty times on the test set | A test score you cannot reproduce on the next month |
+| Optimized accuracy on 1% fraud | A model that flags nobody and passes the unit test |
 
-**Why `LogisticRegression` is classification:** The name says regression because it models the log-odds, a continuous number. The decision you take from it is a class. Do not put it in the regression column when the target is yes/no.
-
-**`predict_proba`:** Returns the probability. `predict` applies the 0.5 threshold. For fraud you often call `predict_proba` and apply your own cutoff.
-
----
-
-## 🟢 Reproducibility
-
-- `random_state=42` (or any fixed seed)
-- Same split, same preprocessing pipeline
-- Document versions of data (Module 2: DVC/S3)
-
-**What reproducibility means:** Another person, or you next month, can rerun the training and get the same split, the same metrics, and the same kind of model. It does not mean the model is correct.
-
-**Why a seed:** `train_test_split` shuffles. Without a seed the exam changes every run and you cannot tell a real improvement from a lucky shuffle.
-
-**Where code-only versioning fails:** Git remembers the notebook. It does not remember which CSV was on disk. Module 2’s answer is to version the dataset (DVC, S3 versions) and record that identifier beside the Git commit.
+**Reproducibility** is the unglamorous close of the class. Fix the seed. Keep the preprocessing in a pipeline so the order is the code. Write down the data version, because Git remembers the notebook and does not remember which CSV was on the disk. Reproducible does not mean correct. It means the next person can rerun the same experiment and argue about the same number.
 
 ---
 
 ## Checkpoint
 
-Why is `fit_transform` on all data before split a leakage bug?
+Explain, with the five incomes 10, 10, 10, 10, and 100, why `fit_transform` on all of them before the split has already used the test answer’s neighborhood. You do not need the word “leakage” in the first sentence. Say which number moved.
 
-**Answer:** `fit_transform` computes statistics such as means, medians, and category lists from every row it is given. If those rows include the test set, the test set helps define the transform that is later applied to itself. The model indirectly sees the exam while studying. Split first. Fit on train. Transform test with the frozen training statistics.
+The number that moved is the mean, from 10 to 28, because the held-out 100 was allowed into the statistic that then scales the training rows. The training data is no longer independent of the exam.
 
-**Next:** [06-genai-prompts-responsible-ai.md](06-genai-prompts-responsible-ai.md)
+**Next class:** [06-genai-prompts-responsible-ai.md](06-genai-prompts-responsible-ai.md)

@@ -1,270 +1,170 @@
-# Session notes — Trust: bias, OOD, explainability
+# Class notes — Bias, strange inputs, and explanations
 
-*Module 2 Session 3 + Labs 5, 6 + Trust Gate lab.*
+*Module 2, Session 3, Labs 5 and 6, and the Trust Gate lab.*
 
-Trust in this module is not a feeling about the model. It is a set of checks that can fail a dataset or a prediction before a customer is affected. Three families of checks appear here: unfair outcomes (**bias**), inputs the model should not score (**out of distribution**), and reasons you can inspect (**explainability**).
+Trust, in this class, is not a feeling about a model. It is a set of checks that can fail a dataset or a single prediction before a person is affected. Three families of checks: unfair outcomes, inputs the model should refuse to score, and reasons you can inspect when someone asks why.
 
----
-
-## 🟢 Four kinds of bias
-
-| Type | Example |
-|------|---------|
-| **Data** | Stations only near cities; loan history reflects past discrimination |
-| **Algorithm** | Optimizing overall accuracy ignores rare group |
-| **Model** | Uses **proxy** (postcode → group) even if group column removed |
-| **Evaluation** | Average metrics hide group failure |
-
-**Bias can enter at every stage** — check at each arrow in the pipeline, not once at the end.
-
-**What bias means in this file:** A systematic skew that makes outcomes worse for some people or some places, beyond what a fair decision procedure would produce. It is not the same word as the bias term `b` in a neuron, and not the same as statistical bias of an underfit model. When you hear “bias,” ask which of the three vocabularies the speaker is using.
-
-| Type | What is going wrong | Where to catch it |
-|------|---------------------|-------------------|
-| **Data bias** | The sample or the labels are skewed before any model exists | Collection and labeling. City-only stations will not represent a valley farm. Historical loan labels can repeat past discrimination. |
-| **Algorithm bias** | The objective ignores the harm. Overall accuracy is happy to be right on the majority. | Metric choice. Optimize the group that can be harmed, not only the average. |
-| **Model bias** | The fitted model uses a stand-in feature. Remove the sensitive column and the postcode still carries it. That stand-in is a **proxy**. | Feature review and correlation checks, not only the feature list |
-| **Evaluation bias** | You publish one number that hides a failing slice | Always report the metric per group that matters |
-
-**Why one check at the end is late:** A proxy discovered after launch has already been served. A missing rural station discovered after training means the model never saw the population. Check at the arrow where the defect enters.
+Before any of them, a vocabulary warning. **Bias** in this file is a systematic skew that makes outcomes worse for some people or some places. It is not the bias term \(b\) in a neuron, and it is not the statistical bias of an underfit model. When a slide says bias, decide which of the three languages it is speaking.
 
 ---
 
-## 🟡 LoanLens (human-centric case)
+## 🟢 Four doors the skew walks through
 
-- **Task:** approve/decline loans
-- **12k** synthetic applicants; group B ~30%
-- **Historical labels** favored group A
-- Features: income, credit, debt ratio, **postcode score** (proxy corr ≈ **-0.61** with group B)
+**Data.** The sample or the labels are skewed before any model exists. Weather stations only near cities will not represent a valley farm. Historical loan labels can repeat past discrimination. You catch this at collection and at labeling, or you do not catch it at all.
 
-| Metric | Group A | Group B |
-|--------|---------|---------|
-| Historical approval | ~75.5% | ~44.2% |
+**Algorithm.** The objective ignores the harm. Overall accuracy is delighted to be right on the majority and silent on a small group. You catch this when you choose the metric. Optimize for the group that can be harmed, not only for the average.
 
-**Fairness through unawareness fails** when proxies exist.
+**Model.** The fitted model uses a stand-in. You delete the sensitive column, and the postcode still carries the group. That stand-in is a **proxy**. You catch it by looking at correlations and at explanations, not by reading the feature list and feeling reassured.
 
-**What the case is:** A teaching dataset, synthetic, so you can inspect unfairness without using real applicants’ data. Twelve thousand rows. Group B is about 30% of applicants. The historical approval labels already approve group A far more often (about 75.5% versus about 44.2%).
+**Evaluation.** You publish one number that hides a failing slice. The repair is dull: report the metric for each group that can be harmed.
 
-**What the model will do if you do nothing:** Supervised learning copies `y`. If `y` encodes the historical gap, the model’s job is to reproduce it, especially when a feature helps it identify the group.
-
-**Proxy, defined:** A feature that is not the sensitive attribute but is correlated with it enough to reconstruct it. `postcode_score` correlates about **−0.61** with group B. Correlation near 0 is unrelated. Correlation near −1 or +1 is a strong linear relationship. −0.61 is strong enough that the model can treat postcode as a substitute for group.
-
-**Fairness through unawareness:** The hope that deleting the column `group_b` makes the model fair because it “cannot see” the group. It fails when any remaining column still sees the group. Unawareness is not a mitigation. It is how the proxy hides.
-
-**Why this is human-centric:** The numbers are approval rates for people, not a leaderboard. A lower score for group B is a denied loan, not a rounding error.
+The reason to check at every arrow, rather than once at the end, is that a missing rural station cannot be fixed by a fairness constraint. The model never saw those farms. A proxy discovered after launch has already been served.
 
 ---
 
-## 🟡 Fairness metrics (know tradeoffs)
+## 🟡 LoanLens, with the arithmetic
 
-| Metric | Meaning |
-|--------|---------|
-| **Disparate impact (DI)** | Approval rate B / rate A — **< 0.8** often “four-fifths” concern |
-| **Statistical parity diff** | Rate B − rate A |
-| **Equal opportunity diff** | TPR gap among **truly creditworthy** |
+The task is approve or decline. The table is synthetic, about **12,000** applicants, so the class can inspect unfairness without real people’s data. Group B is about 30% of the rows. The features include income, credit, a debt ratio, and a **postcode score**. The historical labels already favor group A.
 
-Metrics **conflict** — choose with stakeholders which harm matters.
+| | Group A | Group B |
+|--|---------|---------|
+| Historical approval rate | about 75.5% | about 44.2% |
 
-**Disparate impact:** Divide the favorable-outcome rate of the protected group by the rate of the reference group. Using the lab’s historical rates, \(0.442 / 0.755 \approx 0.59\). The **four-fifths rule** is a long-standing regulatory rule of thumb: a selection rate below 80% of the reference group’s rate is a warning to investigate, not an automatic legal conclusion. The course uses 0.8 as that warning line.
+If you train on those labels, supervised learning will try to copy them. That is what supervised learning is. The model is not rebelling. It is obeying `y`.
 
-**Statistical parity difference:** The same comparison as a subtraction, rate B minus rate A, about \(0.442 - 0.755 = -0.313\). Zero would mean equal approval rates. DI and this difference describe the outcome rates and do not ask who was actually creditworthy.
+**Disparate impact** divides the favorable rate of the group you are worried about by the rate of the reference group:
 
-**Equal opportunity difference:** Among people who truly should have been approved (the true positives’ population), compare true-positive rates. **TPR** is the true positive rate, which is recall. This metric allows different overall approval rates if they are explained by different base rates of creditworthiness, and it flags a model that finds the creditworthy members of one group and misses the other.
+\[
+DI = \frac{0.442}{0.755} \approx 0.59
+\]
 
-**Why the metrics conflict:** Forcing equal approval rates (parity) can mean rejecting qualified people in one group or approving unqualified people in another. Optimizing equal opportunity can leave the raw approval rates unequal. There is no metric that satisfies every definition of fair at once. Stakeholders have to say which harm they are refusing to accept.
+The **four-fifths rule** is an old regulatory rule of thumb: if the selection rate falls below 80% of the reference group’s rate, you investigate. It is a warning, not an automatic legal verdict. The course uses 0.8 as that warning line. 0.59 is under it. The labels themselves are the incident, before any algorithm.
 
-**Where students stop too early:** Computing DI, seeing a failure, and deleting a column. The next section is the set of actions that can actually change the harm.
+**Statistical parity difference** is the same comparison as a subtraction: \(0.442 - 0.755 = -0.313\). Zero would mean equal approval rates. Both of these metrics look at outcomes. They do not ask who was actually creditworthy.
 
----
+**Equal opportunity difference** does. Among people who truly should have been approved, compare true positive rates. The true positive rate is recall. This metric can allow unequal raw approval rates when the groups truly have different base rates of creditworthiness, and it flags a model that finds the qualified members of one group and misses the other.
 
-## 🟡 Mitigation timeline
+These metrics conflict, and the conflict is the lesson. Forcing equal approval rates can mean rejecting qualified people in one group or approving unqualified people in the other. Optimizing equal opportunity can leave the headline approval rates unequal. There is no number that satisfies every definition of fair. Someone who owns the harm has to say which harm they refuse. That someone is not the default setting of a library.
 
-| Phase | Actions |
-|-------|---------|
-| **Pre-processing** | More data for underrepresented groups, reweigh/resample, fix labels, remove proxies |
-| **In-processing** | Fairness constraints, adversarial debiasing, Fairlearn |
-| **Post-processing** | Group thresholds, reject-option, human review band |
-
-**Prefer fixing data first** — helps every future model.
-
-**SageMaker Clarify:** bias reports pre/post training; wire as **pipeline gate**.
-
-| Phase | What you change | Why it helps | The tradeoff |
-|-------|-----------------|--------------|--------------|
-| **Pre-processing** | The dataset, before any model | Every later model inherits the repair. Collect more group-B examples, fix bad labels, drop or rebuild a proxy, or reweigh rows so the loss cannot ignore them. | You can destroy a legitimate signal if the “proxy” is also a real risk factor. That decision needs a domain owner, not only a correlation. |
-| **In-processing** | The training objective | Add a constraint so the optimizer is penalized for a fairness gap. **Adversarial debiasing** trains a second model that tries to guess the group from the first model’s representation; the first model is penalized when the adversary succeeds. **Fairlearn** is a Python library that implements several of these constraints. | The average metric may drop. You are spending accuracy to buy a fairer error rate. |
-| **Post-processing** | The threshold after training | Different cutoffs per group, or a band of scores that go to a human (**reject option**). | Thresholds that use group membership at decision time may themselves be restricted by policy or law. Know the rule before you ship group-specific cutoffs. |
-
-**Why data first:** A constraint on today’s model does not stop the next model from learning the same proxy. A removed proxy and a repaired label benefit every retraining.
-
-**Clarify** is the SageMaker component that computes bias and explanation reports. A **pipeline gate** means the training pipeline stops, or refuses to promote the model, when Clarify’s numbers miss the bar. A report nobody blocks on is a PDF, not a gate.
+**The proxy.** `postcode_score` correlates about **−0.61** with membership in group B. Correlation near 0 means unrelated. Near −1 or +1 means a strong linear relationship. −0.61 is strong enough for a model to treat postcode as a substitute for the group. **Fairness through unawareness** is the hope that deleting the column `group_b` makes the decision fair because the model “cannot see” the group. It fails as soon as any remaining column can reconstruct the group. Unawareness is not a mitigation. It is how the proxy hides. The trust gate later uses an absolute correlation of 0.50 as its alarm. 0.61 exceeds it.
 
 ---
 
-## 🟡 Trust Gate lab (data engineer view)
+## 🟡 What you can do, and why the order is data first
 
-**Purpose:** decide if data is fit to use **before** modeling.
+**Before training.** Collect more examples from the underrepresented group. Fix labels that are wrong rather than merely inconvenient. Remove or rebuild a proxy, knowing that a feature can be both a proxy and a genuine risk factor. That distinction needs a domain owner, not only a correlation. Reweigh or resample so the loss cannot ignore the smaller group. Everything you repair here is inherited by the next model, not only by today’s model.
 
-**Bias checks (loan CSV, no model needed):**
+**During training.** Change the objective. A constraint penalizes a fairness gap. **Adversarial debiasing** trains a second model that tries to guess the group from the first model’s representation, and penalizes the first model when that guess succeeds. **Fairlearn** is a Python library of these constraints. The average accuracy may fall. You are spending it on purpose.
 
-1. **Representation** — group B ≥ 10% of rows?
-2. **Disparate impact** on historical approvals ≥ 0.80?
-3. **Proxy** — any feature |corr| with group ≥ 0.50?
+**After training.** Change the threshold. Different cutoffs per group, or a band of scores that go to a human, which is the **reject option**. Thresholds that use group membership at decision time may themselves be restricted. Know the rule before you ship a group-specific cutoff.
 
-**Course checkpoint:** DI ≈ **0.59** → **FAIL**; `postcode_score` proxy → **FAIL**.
-
-> Removing `group_b` column does **not** fix bias if proxy remains.
-
-**Drift check (weather):** **PSI** on features vs training reference.
-
-| PSI | Interpretation |
-|-----|----------------|
-| < 0.10 | Stable |
-| 0.10–0.25 | Watch |
-| > 0.25 | Major shift |
-
-**Routing:** pass → `curated/`; fail → `quarantine/`; publish metrics to **CloudWatch** + JSON on S3.
-
-**What the gate is for:** Stop unfit data from becoming the training set. This is a data engineer’s control. You do not need a trained model to see representation, historical disparate impact, or a proxy correlation.
-
-**How to read the three loan checks:**
-
-| Check | Pass means | Why this threshold |
-|-------|------------|--------------------|
-| Representation ≥ 10% | Group B is present in more than a token sample | A 1% slice cannot support a conclusion about that group, and a model can ignore them at almost no accuracy cost |
-| DI ≥ 0.80 | Historical approval rates are inside the four-fifths warning | Below that, the labels themselves are the incident |
-| Absolute correlation < 0.50 | No feature is a strong linear stand-in for the group | 0.50 is the course’s alarm. The observed postcode correlation of about 0.61 exceeds it. |
-
-**The checkpoint is a double failure:** DI about 0.59 is under 0.80, and the proxy is over 0.50. Dropping `group_b` changes neither number if postcode remains. The gate should still fail.
-
-**PSI, the population stability index,** compares a feature’s distribution now with a reference distribution from training. It bins the values and sums how much the share in each bin has moved. The course bands are the usual ones: under 0.10 is stable, 0.10 to 0.25 deserves a look, above 0.25 is a major shift. PSI does not say the model is wrong. It says the inputs are different and the old score is less trustworthy.
-
-**Quarantine** is a prefix for data that failed the gate. It is kept for debugging and not consumed by training. **CloudWatch** is AWS monitoring: metrics and alarms. Publishing there means a failed gate can page a person, not only sit in a JSON file nobody opens.
+Prefer the data repair. A constraint on today’s model does not stop the next model from learning the same postcode. **SageMaker Clarify** computes bias reports before and after training. Wire the report as a **pipeline gate**: the model is not promoted when the number misses the bar. A report nobody can fail is a PDF.
 
 ---
 
-## 🟡 Out-of-distribution (OOD)
+## 🟡 The trust gate, as a data engineer’s control
 
-Model always outputs something — **OOD detection** says “I shouldn’t trust this.”
+The gate answers “is this file fit to train on?” It does not need a trained model.
 
-| OOD type | Example |
-|----------|---------|
-| Unseen population | Desert station, trained on temperate |
-| Broken sensor | Stuck 870 hPa / 99% humidity |
-| World change | New climate regime |
-| Out-of-scope ask | Weather bot asked for legal advice |
+Three checks on the loan file:
 
-**Detector families:**
+1. **Representation.** Is group B at least 10% of the rows? A 1% slice cannot support a claim about that group, and a model can ignore them at almost no cost in accuracy.
+2. **Disparate impact** on the historical approvals, at least 0.80.
+3. **Proxy.** Does any feature have absolute correlation with the group of 0.50 or more?
 
-1. **Output-based** — low max softmax probability (model-dependent)
-2. **Density-based** — Mahalanobis, Isolation Forest
-3. **Distribution-based** — **PSI**, KS test (Model Monitor)
+The course checkpoint fails twice. DI is about **0.59**, under 0.80. `postcode_score` is a proxy, over 0.50. Deleting `group_b` changes neither fact. The gate still fails. That sentence is the one to remember in an exam: removing the group column does not remove the bias while the proxy remains.
 
-**Production pattern:** OOD gate → abstain / human / fallback → log for future labels.
+On the weather side, the same style of gate watches **PSI**, the Population Stability Index. PSI bins a feature and sums how much the share of rows in each bin has moved, compared with the training reference. You do not need the full formula to use the course bands.
 
-**What OOD means:** The input is outside the distribution the model was trained on. The model still emits a number, because that is what a function does. The number is not evidence that the input was valid.
+| PSI | What the class says to do |
+|-----|---------------------------|
+| Below 0.10 | The feature looks stable. |
+| 0.10 to 0.25 | Look. Do not ignore it, and do not panic. |
+| Above 0.25 | A major shift. The old score is less trustworthy. |
 
-| Type | What changed | Why the score is untrustworthy |
-|------|--------------|--------------------------------|
-| Unseen population | A new kind of place or customer | The patterns that separate rain in a temperate city may not apply in a desert |
-| Broken sensor | A value stuck at an impossible or constant reading | 870 hPa is an extremely low pressure; 99% humidity stuck there is a fault, not a climate |
-| World change | The real relationship moved | Training winters no longer describe this winter. This is concept drift over a longer scale. |
-| Out of scope | The question is a different task | A weather model asked for legal advice has no label space for that answer |
+PSI does not say the model is wrong. It says the inputs are different. A shift can be a broken sensor or a real change in the climate. Those demand opposite responses, which is why “retrain immediately” is not the automatic next step.
 
-**hPa** means hectopascal, the usual unit of atmospheric pressure. Typical sea-level pressure is about 1013 hPa. 870 hPa is typhoon-eye territory, not a normal stuck reading to trust blindly.
-
-**Detector families:**
-
-| Family | What it looks at | Strength | Weakness |
-|--------|------------------|----------|----------|
-| **Output-based** | The model’s own confidence, often the largest **softmax** probability. Softmax turns a vector of scores into positive numbers that sum to 1. | No extra model | A wrong model can be confidently wrong. Deep networks are especially overconfident far from training data. |
-| **Density-based** | Whether the input sits in a dense region of training inputs. **Mahalanobis** distance measures distance from the training cloud, accounting for correlation between features. **Isolation Forest** is a tree method that flags points that are easy to isolate, a sign they are rare. | Sees strange inputs even when the classifier is confident | Needs a maintained picture of “normal” |
-| **Distribution-based** | A shift between a recent window and training. PSI is one. A **KS test** (Kolmogorov–Smirnov) asks whether two samples could come from the same distribution. **Model Monitor** is the SageMaker service that watches live data for this. | Good for slow drift across many requests | One weird row is not a distribution shift. Pair it with a per-row detector. |
-
-**The production pattern:** If the detector fires, do not show the raw score as if it were normal. Abstain, send it to a human, or use a safer fallback (yesterday’s forecast, a rules baseline). Log the case. Those logs are the future labels and the evidence that the gate works.
-
-**Lab 5’s lesson:** A baseline DI check flags LoanLens, and Mahalanobis catches the desert station and the broken sensor better than “the softmax was unsure.” Do not rely on confidence alone.
+**Routing.** Pass, and the file may go to `curated/`. Fail, and it goes to `quarantine/`, kept for debugging and forbidden to training. Publish the metrics to **CloudWatch**, which is AWS’s monitoring service, and also write the JSON on S3. An alarm can page a person. A JSON file alone will not.
 
 ---
 
-## 🟡 Explainability — three lenses
+## 🟡 Out of distribution: the model will answer anyway
 
-| Lens | Question | Tools |
-|------|----------|-------|
-| **Sample** | Why this row? | Nearest neighbors, prototypes |
-| **Feature** | What inputs matter? | Permutation importance, **SHAP**, PDP |
-| **Distribution** | Does today match training? | **PSI**, KS |
+A model is a function. Give it an input and it returns a number, including when the input is unlike anything it trained on. **Out of distribution** means you should not trust that number. Detection is the extra component that is allowed to say “abstain.”
 
-**Weather model insight:** shuffling **pressure** hurt AUROC most — matches meteorology (sanity check).
+Four situations from class:
 
-| Lens | What you do | What the answer sounds like |
-|------|-------------|-----------------------------|
-| **Sample** | Find training rows closest to this one, or a **prototype**, a real example that represents a neighborhood | “This day looks like these ten historical fog days.” Useful for a human reviewer. |
-| **Feature** | Measure how much each input moves the prediction | “Pressure mattered more than wind.” |
-| **Distribution** | Compare today with training | “Humidity has shifted; I would not trust yesterday’s explanation either.” |
+| Situation | The example | Why the score is hollow |
+|-----------|-------------|-------------------------|
+| A new population | A desert station, trained on temperate cities | The pattern that separates rain there may not travel |
+| A broken sensor | Pressure stuck at 870 hPa, humidity stuck at 99% | That is a fault. **hPa** is the hectopascal. Ordinary sea-level pressure is about 1013. 870 is extreme, not a normal Tuesday. |
+| The world moved | A new climate regime | The training winters are no longer this winter |
+| The wrong task | A weather bot asked for legal advice | There is no label space for that answer |
 
-**Permutation importance:** Shuffle one column at random and see how much the metric drops. If shuffling pressure hurts AUROC the most, the model was using pressure. That matches the meteorology you expect, which is a sanity check. If shuffling a leaky column named `rain_tomorrow` hurt the most, the model was cheating.
+Three families of detectors:
 
-**PDP** means **partial dependence plot**. It shows the model’s average prediction as you vary one feature and hold the others as they appear in the data. It is a global picture, smoother and less local than one row’s SHAP values.
+**Output-based.** Look at the model’s own confidence, often the largest **softmax** probability. Softmax turns a vector of scores into positive numbers that add up to 1. This needs no extra model. It fails when the model is confidently wrong, which deep networks often are, far from their training data.
 
-**Why explanations are not only for regulators:** They are how you catch a clever defect. A model that predicts rain from the station id, because one station’s sensor is broken, will say so if you look at feature importance. Accuracy will not.
+**Density-based.** Ask whether the input sits inside the cloud of training inputs. **Mahalanobis** distance measures that, taking correlation between features into account. An **Isolation Forest** flags points that are easy to separate from the crowd, a sign they are rare. These can catch a strange input even when the classifier is sure of itself. They need a maintained picture of “normal.”
 
----
+**Distribution-based.** Compare a recent window with training. PSI is one. A **KS test**, Kolmogorov–Smirnov, asks whether two samples could share a distribution. **Model Monitor** is the SageMaker service that watches live data this way. A window is good at slow drift and blind to one weird row. Pair it with a per-row detector.
 
-## 🟡 SHAP (intuition)
+Lab 5’s result is the comparison: the disparate-impact check flags LoanLens with no model at all, and Mahalanobis catches the desert station and the broken sensor better than “the softmax looked unsure.” Do not use confidence as your only gate.
 
-From game theory: fairly split “payout” (prediction) among features.
-
-- **Local:** why **this** day got high P(rain)
-- **Global:** average |SHAP| across rows
-
-**TreeSHAP** fast on tree models; **SageMaker Clarify** at scale.
-
-**Cookie vs dog story:** explanation shows model used **eye/nose shape** — fix with hard negatives + augmentation.
-
-**The game-theory idea, in plain language:** Imagine the features as players on a team that produced a score. A fair credit gives each player their average contribution across the orders they could have joined the team. That credit is the Shapley value. **SHAP** adapts it to a model’s output. The values for one prediction add up to the difference between that prediction and the average prediction. That property is why people call them additive explanations.
-
-**Local vs global:** One day’s SHAP tells a forecaster why this morning looks rainy. The mean of the absolute SHAP values across many days tells you which features the model relies on in general. A feature can matter globally and not on this particular day.
-
-**TreeSHAP** is an exact, fast algorithm for tree ensembles. You do not need it for a two-coefficient logistic regression; you can read the coefficients. You do need something like it for a large boosted-tree model. Clarify runs explanation jobs without you hosting the algorithm yourself.
-
-**The cookie vs dog story:** A vision model seemed to recognize dogs, and the explanation showed it was using eyes and nose shape that also appear on a cookie in the dataset’s background, or the reverse failure the class described: the explanation revealed the real cue was not the one you hoped. **Hard negatives** are examples that look similar and have the other label, so the model must learn the true difference. Augmentation stops it from relying on a background accident. The lesson is general: an explanation that surprises you is a debugging tool, not a decoration.
+The production pattern: if a detector fires, do not show the raw score as if it were ordinary. Abstain, send the case to a human, or fall back to something safer, such as yesterday’s forecast or a rules baseline. Log the case. Those logs are future labels, and they are the evidence that the gate works.
 
 ---
 
-## 🟡 Transparency artifacts
+## 🟡 Three ways to explain, and the weather sanity check
 
-| Document | Contents |
-|----------|----------|
-| **Data card** | Source, labeling, gaps, version, intended use |
-| **Model card** | Metrics per group, limits, training data version |
-| **Lineage** | Which data + code + params → this artifact |
-| **ADR** | Architecture decisions & rejected options |
+| Lens | The question | How you answer it |
+|------|--------------|-------------------|
+| Sample | Why does this row look like a case we know? | Nearest training rows, or a **prototype**, a real example that stands for a neighborhood. “This morning looks like these ten historical fog days.” |
+| Feature | Which inputs moved the score? | Permutation importance, SHAP, a partial dependence plot |
+| Distribution | Does today even match training? | PSI, a KS test |
 
-| Artifact | What it is for | What “done” looks like |
-|----------|----------------|------------------------|
-| **Data card** | A label on the dataset, the way a model card is a label on a model | A new teammate can see source, licence, who labeled it, known gaps (no desert stations), the version, and what it must not be used for |
-| **Model card** | The release note for a model | Metrics overall and per group, the threshold, the training data version, and the cases where it should abstain |
-| **Lineage** | The parentage of an artifact | “Model 17 came from curated version 4, git commit abc, hyperparameters in this config.” This is the reproducibility triple from the versioning notes. |
-| **ADR** | Architecture decision record | A short note: the decision, the options rejected, and why. “We chose batch scoring by 6 a.m. rather than an edge device because stations have reliable nightly connectivity.” |
+**Permutation importance.** Shuffle one column and see how much the metric drops. In the weather model, shuffling **pressure** hurt AUROC the most. That matches the meteorology, so it is a sanity check: the model is using a physically sensible clue. If shuffling a column named `rain_tomorrow` had hurt the most, the model would have been cheating, and the explanation would have caught what accuracy would have praised.
 
-**Why these exist:** Six months later the person who remembers has left. The card and the lineage are how the trust gate stays explainable to the next person.
+A **partial dependence plot** shows the model’s average prediction as you vary one feature. It is a global, smoothed picture. It is less local than one morning’s explanation.
+
+Explanations are not only for a regulator. They are how you notice that a model predicts rain from the station id because one station’s sensor is broken. Accuracy will not tell you that.
 
 ---
 
-## Lab 5 & 6 checkpoints
+## 🟡 SHAP, without the folklore
 
-- **Lab 5:** baseline DI flagged; Mahalanobis catches desert/broken sensor better than naive softmax
-- **Lab 6:** PSI flags temp/humidity/pressure; wind/cloud stable → targeted investigation
+Imagine the features as players on a team that produced a score. A fair split gives each player their average contribution across the orders in which they could have joined the team. That idea is a Shapley value, from game theory. **SHAP** adapts it to a model. For one prediction, the feature contributions add up to the difference between that prediction and the average prediction. “Additive” is that bookkeeping property, not a slogan.
 
-**How to talk about lab 6:** PSI above the major-shift band on temperature, humidity, and pressure, with wind and cloud stable, is not “retrain everything.” It is a clue that those three sensors or that climate slice changed. Investigate the instrument and the region before you spend a training run learning the fault.
+**Local** SHAP is why this day got a high probability of rain. **Global** importance, in this method, is the average of the absolute SHAP values across many days. A feature can matter in general and not matter this morning.
+
+**TreeSHAP** computes this quickly and exactly for tree ensembles. A two-coefficient logistic regression does not need it. You can read the coefficients. A large boosted model does need something like it. Clarify can run the explanation job so you are not hosting the algorithm yourself.
+
+The cookie-and-dog story is the debugging lesson. A vision model appeared to recognize the animal, and the explanation showed it was relying on a cue you did not intend, the shape of eyes and nose in a way that also fit a distraction in the images, such as a cookie. The repair is **hard negatives**, examples that look similar and have the other label, plus augmentation so a background accident is not a reliable clue. An explanation that surprises you is a debugging tool. If it only ever confirms what you hoped, you are not reading it.
+
+---
+
+## 🟡 The documents that outlive the person who remembers
+
+A **data card** describes the dataset the way a label describes a product: source, licence, who labeled it, known gaps such as “no desert stations,” the version, the intended use, and the uses that are forbidden.
+
+A **model card** is the release note: metrics overall and by group, the threshold, the training-data version, and the cases where the model should abstain.
+
+**Lineage** is the parentage. Model 17 came from curated version 4, this git commit, and these hyperparameters. That is the reproducibility triple.
+
+An **ADR**, an architecture decision record, is a short note of a decision, the options rejected, and why. “We score overnight rather than on the device, because the stations have a reliable nightly connection and the farmer acts at 6 a.m.” Six months later that sentence is the difference between a design and a rumor.
+
+---
+
+## Labs 5 and 6, in one paragraph each
+
+Lab 5: the baseline disparate impact is already a failure, and the distance-based detector catches the desert station and the stuck sensor where a naive confidence score does not. Lab 6: PSI flags temperature, humidity, and pressure, while wind and cloud look stable. That pattern is a targeted investigation of those three measurements, not a blanket retrain. A retrain would happily learn a broken instrument.
 
 ---
 
 ## Checkpoint
 
-Why did removing `group` from features not remove bias in LoanLens?
+Why did deleting the group column fail to remove the bias in LoanLens? Use the two numbers.
 
-**Answer:** Group membership was still available through a proxy. `postcode_score` correlates about −0.61 with group B, which is above the trust gate’s 0.50 alarm. The historical labels also approve group A at about 75.5% and group B at about 44.2%, a disparate impact near 0.59. A model trained on those labels and that postcode can reproduce the gap without ever seeing the group column. Fairness through unawareness fails when a stand-in feature remains.
+The historical approval rates are about 75.5% and 44.2%, so disparate impact is about 0.59, under the 0.8 warning. The postcode score correlates about −0.61 with group B, above the 0.50 proxy alarm. The labels still teach the gap, and the postcode still identifies the group. The model can reproduce the harm without ever seeing the group column.
 
-**Next:** [06-scale-integration-and-labs.md](06-scale-integration-and-labs.md)
+**Next class:** [06-scale-integration-and-labs.md](06-scale-integration-and-labs.md)

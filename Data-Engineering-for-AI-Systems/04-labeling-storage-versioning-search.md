@@ -1,268 +1,148 @@
-# Session notes — Labels, lakes, versioning, vectors
+# Class notes — Labels, the lake, versions, and finding text by meaning
 
-*Module 2 Session 2 + Labs 3, 4a, 4b.*
+*Module 2, Session 2, and Labs 3, 4a, and 4b.*
 
-A cleaned table still needs a meaning for “the right answer,” a place to live, a version you can roll back, and sometimes a way to search by meaning rather than by exact words. This file covers those four jobs.
-
----
-
-## 🟢 Labels are a product
-
-Ground truth = **supervised learning fuel**. Bad labels → bad model, no matter how fancy the algorithm.
-
-**What a label is:** The `y` you are willing to treat as correct for training. For rain it might be “measured rainfall tomorrow exceeded 1 mm.” For a bulletin it might be the category an expert assigned. The label is not the prediction, and it is not automatically true just because a column exists.
-
-**Why labels are a product:** Someone must define them, write instructions, measure agreement, and version them. That is design and operations work. Calling the column `label` does not make it ground truth.
-
-**Ground truth** means the label you accept as the reference. Some targets are measurements (a rain gauge). Some are judgments (a forecaster’s category). Judgments need an agreement process because two honest experts can differ.
-
-**How bad labels show up:** The loss decreases, the test score looks stable, and the errors are systematic. The model copied the labeling mistake. Changing the algorithm does not fix an instruction that says “mark ‘no rain expected’ as rain.”
-
-**Where this connects to Module 1:** Supervised learning is defined by having `y`. Unsupervised learning looks for structure without `y`. Most of this course’s decisions are supervised, so the label workflow is part of the model.
+A cleaned table still has no meaning for “the right answer,” no promise you can restore yesterday, and no way to find a bulletin that does not share your keywords. This class treats those as products. A column named `label` is not automatically ground truth. A file you overwrote is not a version. A keyword search is not an understanding of the sentence.
 
 ---
 
-## 🟡 Four labeling methods
+## 🟢 A label is something you manufacture on purpose
 
-| Method | Quality | Speed | When |
-|--------|---------|-------|------|
-| **Manual (experts)** | Highest | Slowest | Gold sets, hard cases |
-| **Crowd** | Medium | Fast | Clear guidelines + redundancy |
-| **Synthetic** | Varies | Fast | Augmentations, renders, LLM text |
-| **Programmatic** | Noisy | Very fast | Rules / weak supervision |
+In supervised learning, the label is the `y` you are willing to treat as correct. For rain it might be “the gauge exceeded 1 mm the next day,” which is a measurement. For a bulletin it might be the category an expert assigned, which is a judgment. Measurements and judgments both get called ground truth, and they do not deserve the same trust. A gauge can be broken. Two experts can disagree. The work of this class is to make the judgment reliable enough to train on, and to know how reliable it was.
 
-**Real projects:** hybrid — automation for volume, humans for judgment gaps.
-
-| Method | What it means | Why the quality column looks like that |
-|--------|---------------|----------------------------------------|
-| **Manual experts** | A person who knows the domain labels the item | Slow and expensive, and still needs instructions. This is how you build a **gold set**, a small trusted set used to score everyone else. |
-| **Crowd** | Many non-experts follow a guide | Fast if the task is obvious. Quality collapses when the guide is vague. Give the same item to more than one person (**redundancy**) and compare. |
-| **Synthetic** | A program or a generator creates labeled examples | The label is only as true as the generation rule. A rotated image may keep its label. An LLM sentence may not. |
-| **Programmatic** | Rules or heuristics vote on a label. Also called **weak supervision** because the rules are noisy. | You can label a million rows today and be systematically wrong wherever the rule is naive. |
-
-**Why hybrid is the real design:** Rules label the easy 80%. Humans label the abstentions and a random audit. Experts adjudicate disagreements and refresh the gold set. You do not pick one cell of the table for the whole project.
+If the labels are systematically wrong, the loss still falls. The model is a diligent student of the mistake. Changing the algorithm does not fix an instruction that marks “no rain expected” as rain. You fix the instruction, then you retrain. That is why labels are a product: someone defines them, writes the guide, measures agreement, and versions the result. Unsupervised learning, which looks for structure without a `y`, is not the path for these decisions. Most of this course is supervised, so the label workflow is part of the model.
 
 ---
 
-## 🟡 Label quality workflow
+## 🟡 Four ways to produce a label, and why real projects mix them
 
-1. **Guidelines** with examples + edge cases
-2. **Pilot** 20–50 items, 2+ annotators
-3. **Measure agreement** (Cohen’s **kappa**)
-4. **Adjudicate** disagreements with expert
-5. **Scale** with gold questions + spot audits
+**Manual experts.** A person who knows the domain labels the item. Slow, expensive, and still dependent on a written guide, because experts disagree too. This is how you build a **gold set**, a small trusted set used later to score everyone else, including the rules.
 
-**Kappa intuition:**
+**A crowd.** Many non-experts follow the guide. Fast when the task is obvious, and noisy when the guide is vague. Give the same item to more than one person. That repetition is **redundancy**. If they disagree, you have found a hole in the guide or a hard case, which is what you wanted to find.
 
-- 1.0 = perfect beyond chance
-- 0 = chance agreement
-- < 0.6 → fix guidelines, not blame people
+**Synthetic.** A program creates a labeled example: a rotated image, a rendered scene, an LLM sentence. The label is only as true as the generation rule. Rotation often preserves a class. A generated sentence often does not.
 
-**Lab 3 numbers (simulated):** kappa ~0.78; ~13.5% bulletins need adjudication.
+**Programmatic, also called weak supervision.** Rules vote. You can label a million rows today. You can also be systematically wrong on every row the rule misunderstands. The speed is the attraction and the danger.
 
-**What guidelines contain:** The definition of each class, positive examples, and the edge cases that cause fights (“no rain expected,” “drizzle,” “rain nearby but not at the station”). If it is not in the guide, annotators will invent a policy, and they will not invent the same one.
-
-**What a pilot is:** A small paid rehearsal. You are testing the guide, not the annotators. Twenty to fifty items is enough to see confusion before you spend the full budget.
-
-**Cohen’s kappa:** A measure of agreement between two annotators that subtracts the agreement you would expect by chance. Raw percent agreement lies when one class is common: two people who always say “clear” agree often and know nothing. Kappa near 0 means they agree about as often as chance. Kappa near 1 means they agree even after chance is removed. Below about 0.6, the course says to repair the instructions.
-
-**Adjudicate** means a more expert person resolves the items where annotators disagreed. Those resolutions become new examples in the guide.
-
-**Gold questions:** Items with a known answer slipped into the work so you can see who is clicking randomly. **Spot audits** are random reviews after scale-up. Both exist because quality drifts once the pilot is over.
-
-**What the lab numbers mean:** Kappa around 0.78 is usable and not perfect. About 13.5% of bulletins still need an expert. Budget for that fraction instead of assuming automation or a single pass is enough.
+The design that actually gets used is a hybrid. Rules take the easy bulk. Humans take the cases where the rules abstain or conflict. Experts adjudicate disagreements and refresh the gold set. Picking one cell of the table for the whole project is how the budget and the quality both fail.
 
 ---
 
-## 🟡 Programmatic labeling (bulletins)
+## 🟡 The quality workflow, and what kappa is doing
 
-Pattern:
+Five steps.
 
-- Several **labeling functions** vote (`storm`, `fog`, `rain`) or **abstain**
-- Majority vote → label
-- **Abstain** rows → humans
+1. Write **guidelines** with the definition of each class, positive examples, and the edge cases that cause fights. “No rain expected.” “Drizzle.” “Rain nearby but not at this station.” If it is not in the guide, each annotator invents a policy.
+2. Run a **pilot** of 20 to 50 items with at least two annotators. You are testing the guide, not the people.
+3. Measure agreement with Cohen’s **kappa**.
+4. **Adjudicate**: a more expert person resolves the disagreements, and those resolutions become new examples in the guide.
+5. **Scale**, with gold questions hidden in the work and with spot audits afterwards. Quality drifts once the pilot is over. A gold question is an item whose answer you already know, slipped into the queue so you can see who is clicking without reading. A spot audit is a random review after you have scaled.
 
-**Bug example:** `lf_rain` matching “**No** rain expected” → add **negation handling** (lab task).
+**Why not raw percent agreement?** Suppose 90% of bulletins are “clear.” Two annotators who always say “clear” agree 90% of the time and have demonstrated nothing about the rare storm. Percent agreement is flattered by the majority, the same way accuracy is flattered by the majority. Kappa subtracts the agreement you would expect from chance.
 
-**Hybrid savings (illustrative):** ~80% rows by rules @ ~94.6% accuracy; rest to humans; large cost reduction vs all-human.
+The intuition we need, not the full formula: 1.0 means they agree beyond what chance would produce. 0 means they agree about as often as chance. Below about 0.6, the course says to repair the guidelines rather than to blame the annotators. The pilot exists so you discover that 0.6 before you have paid for the full set.
 
-**What a labeling function is:** A small rule that either returns a class or abstains. `lf_fog` might look for “visibility poor” and otherwise refuse to vote. Abstaining is a feature. A function that always votes spreads its mistakes to every row.
-
-**Why several functions:** One rule is brittle. A vote lets fog words and rain words compete. Where they conflict or all abstain, a human decides. That human queue is the point of the design.
-
-**What the negation bug teaches:** The substring “rain” appears inside “no rain expected.” A naive match labels the opposite of the text. Negation handling means the rule understands “no,” “not,” and “without,” at least well enough to abstain. This is also why you do not fully trust programmatic labels without a gold set.
-
-**How to read the savings numbers:** They are illustrative lab math. If rules cover about 80% of rows at about 94.6% accuracy, humans only read the hard remainder, and you still audit. The cost drops because expert time is the expensive part, not because the rules became ground truth. Keep the gold set real.
+Lab 3, on the simulated bulletins, lands near kappa **0.78**, with about **13.5%** of bulletins still needing adjudication. 0.78 is usable and not perfect. Budget for that 13.5%. Do not plan a project that assumes one pass and no expert queue.
 
 ---
 
-## 🟡 Label Studio vs Ground Truth
+## 🟡 Programmatic labeling, including the negation bug
+
+A **labeling function** is a small rule that either returns a class or **abstains**. Abstaining is a feature. A function that always votes spreads its mistakes onto every row. `lf_fog` might look for “visibility poor” and otherwise refuse to vote. Several functions vote. A majority becomes the label. Rows where everyone abstains, or where the votes conflict, go to a person.
+
+The bug in the lab is the lesson. `lf_rain` matches the substring “rain,” so it matches “**no** rain expected” and votes the opposite of the sentence. Negation handling means the rule understands “no,” “not,” and “without,” at least well enough to abstain. This is also why a gold set stays in the loop. You do not discover this bug by staring at the rule’s accuracy on rows the rule itself labeled.
+
+The illustrative savings: rules cover about 80% of rows at about 94.6% accuracy against the gold checks, and the rest go to humans. The cost falls because expert time is the expensive input, not because the rules became ground truth. Treat the percentages as lab math that shows the shape of the trade, and keep the audit.
+
+---
+
+## 🟡 Two labeling products
 
 | | Label Studio | SageMaker Ground Truth |
-|---|--------------|------------------------|
-| Hosting | Your laptop/EC2 | Managed AWS |
-| Strength | Flexible configs | Workforce + IAM integration |
-| Pay | You manage infra | Per labeled object |
+|--|--------------|------------------------|
+| Where it runs | Your laptop or an EC2 machine you manage | Managed inside AWS |
+| Why you pick it | Flexible configurations, and it can leave AWS | A workforce, and the same permissions system as the rest of the account |
+| What you pay | You operate the machines | You pay per labeled object |
 
-**Config = UI + label schema** (XML for bulletin categories: clear/cloudy/rain/fog/storm).
+**EC2** is Elastic Compute Cloud, a virtual machine. **IAM** is Identity and Access Management, AWS’s permissions. Ground Truth can use the same identities and the same private buckets. Label Studio will run wherever you install it, including a laptop that should not be the production labeling service.
 
-**EC2** means **Elastic Compute Cloud**, a virtual machine you manage. **IAM** means **Identity and Access Management**, AWS’s permissions system. Ground Truth can use the same identities and private data locations as the rest of the account. Label Studio is flexible and will happily run wherever you install it, including a laptop that is a poor place for a production labeling workforce.
-
-**Label schema:** The list of allowed labels and the type of task (one class, many classes, a box, a text span). The **UI** is how that schema is shown to the annotator. **XML** is the configuration format used in the lab, a markup language of tags. The format is incidental. What matters is that the schema matches the guidelines: the same five bulletin categories, with no free-text surprise class.
-
-**Where the choice is made:** A course lab or a company already inside AWS leans on Ground Truth. A research setup that must leave AWS leans on Label Studio. The quality workflow above does not change with the tool.
+The **config** is the user interface plus the **label schema**, the allowed labels and the type of task. In the lab the schema is the bulletin categories clear, cloudy, rain, fog, and storm, written as **XML**, a markup of tags. The format is incidental. What matters is that the schema matches the guide. A free-text box where the guide promised five categories will produce a sixth category called whatever the annotator typed.
 
 ---
 
-## 🟡 Storage map for AI
+## 🟡 Which store answers which question
 
-| Need | Store type |
-|------|------------|
-| Files, lake | **S3** zones |
-| SQL analytics on lake | **Glue Catalog + Athena** (lakehouse) |
-| Heavy BI concurrency | **Redshift Serverless** |
-| Relationships | **Graph** (Neptune, Neo4j) |
-| Similarity search | **Vector** DB / OpenSearch k-NN |
+Start with a lakehouse. Add a warehouse when many people run the same heavy aggregates every day. Do not start with the warehouse because it sounds more serious.
 
-**Start lakehouse;** add warehouse when many users hammer same aggregates daily.
+| You need | You use | The question it answers | The question it is bad at |
+|----------|---------|-------------------------|---------------------------|
+| Files and the zones | S3 | Where is this version of the file? | Thousands of tiny row updates per second |
+| A directory of tables | Glue Catalog | What are the columns of `weather_clean`, and where do they live? | Storing the rows themselves |
+| SQL on the files | Athena | What was the mean humidity in May, without running a cluster? | A hundred-person dashboard that repeats the same scan all day |
+| Heavy, repeated BI | Redshift Serverless | The same aggregates, many times a day | The first landing place of raw files |
+| Relationships | A graph: Neptune or Neo4j | Which routes connect to this alert? | A plain monthly average |
+| Similarity | A vector index, or OpenSearch k-NN | Which bulletins are closest in meaning? | An exact total |
 
-**What each store is for:**
-
-| Store | What it is | The question it answers | Do not use it to |
-|--------|------------|-------------------------|------------------|
-| **S3** | Object storage | “Where is the file, and which version?” | Serve thousands of tiny row updates per second like a transactional database |
-| **Glue Catalog** | Table metadata | “What columns does `weather_clean` have, and where is the data?” | Store the rows themselves |
-| **Athena** | Serverless SQL over files in S3 | “What was the mean humidity in May?” without loading a cluster | Power a hundred-person dashboard that reruns the same scan all day |
-| **SQL** | Structured Query Language | The language of that question | — |
-| **Lakehouse** | Files plus a catalog plus SQL | The combination of the three rows above | — |
-| **Redshift Serverless** | A cloud data warehouse that starts without you managing servers | The same aggregates, many times a day, by many BI users | The first place you land raw files |
-| **BI** | Business intelligence | Dashboards and reports | Training-time feature logic you do not version |
-| **Graph** | Nodes and edges. **Neptune** is AWS’s graph database. **Neo4j** is a widely used graph database. | “Which routes are connected to this station’s alert?” | A plain daily average |
-| **Vector database / OpenSearch k-NN** | An index of embeddings. **k-NN** means k nearest neighbors. | “Which bulletins are closest in meaning?” | Exact financial totals |
-
-**Why start with the lakehouse:** The lab data is files, the teams are small, and Athena answers the audit questions. Add Redshift when concurrency and repeated aggregates make scanning files wasteful. Starting with a warehouse does not remove the need for raw and clean zones.
+**SQL** is Structured Query Language. A **lakehouse** is files plus a catalog plus SQL. **BI** is business intelligence, the dashboards. **Redshift Serverless** is a data warehouse that starts without you managing servers. **Neptune** is AWS’s graph database. **Neo4j** is a widely used graph database. **k-NN** is k nearest neighbors. The store follows the question. Embedding a station id in order to compute a monthly mean is the wrong store and the wrong representation.
 
 ---
 
-## 🟡 Ingestion production habits
+## 🟡 Four habits that separate a lab upload from a pipeline
 
-| Property | Meaning |
-|----------|---------|
-| **Idempotent** | Re-run job ≠ duplicate rows |
-| **Schema evolution** | New columns don’t break readers (Glue Catalog) |
-| **Late data** | Event time vs arrival time + lateness window |
-| **Backfills** | Replay into **new version**, not in-place overwrite of history |
+**Idempotent.** Running the job twice has the same result as running it once. If a Glue job fails halfway and you rerun it, Monday must not be appended twice. Write a day’s output to a deterministic partition and replace that partition, or deduplicate on the primary key. “Append forever” is not idempotent.
 
-**Idempotent** means doing the job twice has the same result as doing it once. If a Glue job fails halfway and you rerun it, you must not append a second copy of Monday. The usual method is to write a partition deterministically (replace that day’s output prefix) or to deduplicate on the primary key.
+**Schema evolution.** Columns change. A new `wind_gust` should not break old queries. The catalog records the new schema. Readers that name their columns keep working. Readers that assume “the fifth field in the CSV” do not. This is another reason the curated form is Parquet with names, not a positional text file.
 
-**Schema evolution** means the columns change over time. A new `wind_gust` column should not make old queries crash. The catalog records the new schema. Readers that select named columns keep working. Readers that assume a fixed position in a CSV do not, which is another reason to prefer Parquet and named columns.
+**Late data.** **Event time** is when the weather happened. **Arrival time** is when the file landed. A station that was offline uploads yesterday this morning. A **lateness window** is how long you wait before you call a day’s partition closed. Without it, late rows are dropped, or they rewrite history without a version.
 
-**Event time** is when the weather happened. **Arrival time** is when the file landed. A station that was offline can upload yesterday’s hours today. A **lateness window** says how long you wait before you consider a day’s partition closed. Without it, late rows are either dropped or they rewrite history quietly.
-
-**Backfill** means reprocessing an old period, often because the cleaning rule improved. Write it as a new version. Overwriting last quarter’s curated table erases the data your previous model was trained on, and you can no longer explain that model.
+**Backfills.** Reprocessing an old period, usually because the cleaning rule improved, writes a new version. Overwriting last quarter’s curated table erases the data the previous model was trained on. You can no longer explain that model. The model card has to point at a version that still exists.
 
 ---
 
-## 🟡 Versioning: S3 + DVC
+## 🟡 Versions: the bucket remembers, and Git does not hold the bytes
 
-**S3 versioning:** every overwrite keeps history; list versions, restore old object.
+Turn on **S3 versioning** before you need it. After it is on, a new upload of `weather_clean.csv` does not destroy the previous bytes. It adds a version id. You can list versions and download the old one. Turning it on later does not resurrect what you already overwrote. Versioning is a safety net and an audit trail. It is not a substitute for raw, clean, and curated.
 
-**DVC pattern:**
+**DVC**, Data Version Control, solves a different problem. Git becomes the wrong tool if you commit a multi-gigabyte CSV. DVC puts a small pointer file in Git and the **blob**, the file contents, in S3. Checking out an old commit and then pulling DVC restores the data that commit was made with.
 
-- Git stores **pointers** (`.dvc` files)
-- S3 stores **blobs**
-- Repro experiment = `git commit` + `dvc push` + training config
+The reproducibility line, which is the same line as Module 1 with the data filled in:
 
 ```
-Reproducible run = code commit + data version + hyperparameters
+a rerunnable experiment = a code commit + a data version + the hyperparameters
 ```
 
-**What S3 versioning does:** When versioning is enabled on the bucket, a new upload of `weather_clean.csv` does not destroy the previous bytes. It adds a version id. You can list versions and download the old one. It is not a substitute for zones. It is a safety net and an audit trail.
+Any one of the three, alone, is a rumor.
 
-**What DVC adds:** Git becomes slow and wrong if you commit a multi-gigabyte CSV. DVC stores a small pointer file in Git and the bytes in S3. Checking out an old Git commit, then pulling DVC, restores the data that commit was made with.
-
-**Blob** means binary large object, the file contents. **Hyperparameters** are the settings you chose before training, from Module 1.
-
-**Why all three pieces:** Code without data can be a different experiment. Data without code is a file nobody can rebuild. Hyperparameters without either is a number in a slide. The triple is the minimum description of a run.
+Lab 4a asks you to prove the mechanism. Enable versioning. Upload `weather_clean.csv` twice. Restore the older version. Create an Athena table through the Glue Catalog. Run a count. Note how much data was scanned. The count checkpoint is about **5,466** rows, the same rows the cleaning lab produced. If Athena disagrees, the table points at the wrong key or the wrong version. The scanned-bytes number is the lesson hiding in a small file: Athena’s price follows how much data the query reads, not how many rows come back. `SELECT *` on a wide CSV reads everything. Parquet and partitions, next class, are how that number falls. See the number while the data is still small enough that the bill cannot distract you from the mechanism.
 
 ---
 
-## 🟡 Lab 4a — Athena lakehouse
+## 🟡 Search by meaning
 
-**Goals:**
-
-1. Enable bucket versioning
-2. Upload two versions of `weather_clean.csv`
-3. Restore older version
-4. Create Athena table via Glue Catalog
-5. Run SQL; note **data scanned** (cost driver)
-
-**Checkpoint:** count ≈ **5,466** rows; can download prior version.
-
-**Cost tip:** Athena bills per TB scanned — **Parquet + partitions** reduce scan later (Session 3).
-
-**What you are proving in the lab:**
-
-| Step | What it teaches |
-|------|-----------------|
-| Enable versioning | The bucket can remember overwrites. Doing this later does not recover files already replaced. |
-| Upload twice | Two version ids exist for one key |
-| Restore | You can get the previous bytes back on purpose |
-| Glue Catalog table | SQL needs a schema and a location, not only a file |
-| Athena query | The lakehouse works, and the bytes scanned are the bill |
-
-**Why “data scanned” is the lesson:** Athena’s price follows how much data the query reads, not how many rows it returns. `SELECT *` on a wide CSV reads everything. A later Parquet file with a partition on year lets the engine skip whole files. The lab wants you to see the scanned number while the data is still small.
-
-**The 5,466 checkpoint** matches the cleaning lab. If Athena counts something else, the table is pointing at the wrong key or the wrong version.
-
----
-
-## 🟡 Embeddings & semantic search (Lab 4b)
-
-Pipeline:
+The pipeline of Lab 4b:
 
 ```
-Text → embedding model (Titan/Cohere) → vector → nearest-neighbor index
+text → an embedding model → a vector → an index of nearest neighbors
 ```
 
-**Why:** “hard to see the road” matches **fog** bulletins without shared keywords (unlike grep).
+**Titan** and **Cohere** are embedding models available through Bedrock in the lab. The brand is not the lesson. The lesson is that the stored chunks and the query must be embedded with the same model. Vectors from two models do not live in the same space. You cannot mix them and call the nearest neighbor meaningful.
 
-**CLIP idea:** image + text encoders map to **shared vector space** (multimodal search).
+**Cosine similarity** says two vectors point in a similar direction, which for embeddings means the texts are similar in the way the model was trained to notice. The index finds the nearest ones without a linear scan of every row. This beats `grep` on the bulletin “dense fog, visibility 50 m” when the user typed “hard to see the road.” The characters do not match. The meaning does. Embeddings also group things you did not intend. You evaluate search quality. You do not assume closeness is relevance.
 
-**What an embedding model does:** It maps a piece of text to a vector of a few hundred or a few thousand numbers. Texts with similar meaning have vectors with a high **cosine similarity** (they point in a similar direction), even if they share no words.
-
-**Titan** and **Cohere** are embedding-model providers available through Bedrock in the lab. The pipeline does not depend on those brand names. It depends on using the same model for the stored chunks and the query. Vectors from two different models are not comparable.
-
-**Nearest-neighbor index:** A structure that finds the closest stored vectors without comparing the query to every row one by one. **k-NN** asks for the k closest.
-
-**Why this beats grep:** `grep` finds characters. A person writing “hard to see the road” will not match a bulletin that says “dense fog, visibility 50 m.” The embedding space groups those meanings. It can also group things you did not intend, so you still evaluate search quality.
-
-**CLIP** means **Contrastive Language–Image Pretraining**. One encoder reads images, another reads text, and training pulls matching image–text pairs together. A radar image and the phrase “band of heavy rain” can then live in one space. That is the search version of multimodal fusion.
-
-**Where embeddings are the wrong tool:** Exact ids, sums, and thresholds. Do not embed a station id to compute a monthly mean. Use SQL for that.
+**CLIP**, Contrastive Language–Image Pretraining, trains an image encoder and a text encoder so that a matching image and caption land near each other. A radar image and the phrase “band of heavy rain” can then share a space. That is multimodal search, the retrieval version of the fusion idea from the first class.
 
 ---
 
-## 🟢 Graph + GraphRAG (concept)
+## 🟢 A graph, when similarity is the wrong hop
 
-Nodes = entities (station, alert, route); edges = relationships.
+A **node** is a thing: a station, an alert, a route, a customer. An **edge** is a typed relationship: this station issued this alert, this alert affects this route. The useful query is a path. “Who is affected by this storm?” may be badly answered by similar paragraphs and well answered by alert, then route, then customer.
 
-Query paths like: *storm alert → routes affected → customers*.
-
-**GraphRAG:** retrieval follows **edges**, not just similar text chunks.
-
-**What a node and an edge are:** A node is a thing. An edge is a typed relationship: “station S01 issued alert A17,” “alert A17 affects route R3.” The query is a path, which is a poor fit for a single blob of text and a poor fit for a flat table when the connections hop several times.
-
-**What GraphRAG adds to RAG:** Classic RAG retrieves chunks that are similar to the question. GraphRAG also walks relationships. “Who is affected by this storm?” may be badly answered by similar paragraphs and well answered by alert → route → customer. You still want the source text for the words of the alert.
-
-**Why this is only as good as the edges:** A missing “affects route” link is invisible to similarity search too, but the graph makes the gap look like a confident empty path. Building the graph is a data-engineering job: extracting entities, deduplicating stations, and versioning the edges.
+**GraphRAG** retrieves by walking edges, not only by finding similar chunks. You still want the source text, because the words of the alert matter. The graph is only as good as the edges. A missing “affects route” link looks like a confident empty answer. Building those edges, deduplicating stations, and versioning the graph is a data-engineering job, not a prompt.
 
 ---
 
-## Session 2 remember list
+## What to remember without the slides
 
-1. Labels need guidelines + agreement
-2. Hybrid labeling (rules + humans) wins on cost
-3. Pick store by question; **version everything**
+Labels need a guide and a measurement of agreement that is not flattered by the majority class. Rules plus humans beat either one alone on cost and on the negation bugs. The store follows the question. Version the code, the data, and the settings together, or you cannot explain the model you shipped.
 
-**Next:** [05-trust-bias-ood-explainability.md](05-trust-bias-ood-explainability.md)
+**Next class:** [05-trust-bias-ood-explainability.md](05-trust-bias-ood-explainability.md)

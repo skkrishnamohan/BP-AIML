@@ -1,209 +1,200 @@
-# Session notes — From zero: AI, ML, DL, GenAI
+# Class notes — From zero: AI, ML, DL, GenAI
 
-*Based on: Student Guide W1, Week 1 slides, reading “AI vs ML vs DL,” Historical Context, Current AI Landscape.*
+*Week 1. Student guide, slides, and the readings “AI vs ML vs DL,” “Historical Context,” and “Current AI Landscape.”*
 
-This file names the family of technologies, then shows **when** each one is the right tool. Every section answers what the thing is, why anyone uses it, how it decides, and where it shows up.
-
----
-
-## 🟢 The picture in your head (concentric circles)
-
-Imagine nested circles. The outer circle contains the inner ones. Saying “we will use AI” does not tell you which inner circle you are in.
-
-1. **Artificial Intelligence (AI)** — broadest: machines doing tasks that *look* intelligent (recommendations, fraud alerts, chatbots).
-2. **Machine Learning (ML)** — a *subset* of AI: the machine **learns from data** instead of only following hand-written rules.
-3. **Deep Learning (DL)** — a subset of ML: many layers of a neural network learn features from raw inputs such as pixels or tokens.
-4. **Generative AI (GenAI)** — creates **new** content (text, images, code), not just “spam vs not spam.” Most modern GenAI is deep learning, but not all deep learning generates new content. A face detector is DL and is usually **discriminative** (it labels), not generative.
-5. **Large Language Models (LLMs)** — GenAI for language, usually built on the **Transformer** architecture (2017 paper: *Attention Is All You Need*).
-
-**Memory trick:** AI is the campus; ML is one department; DL is a method inside that department; GenAI is a lab that creates new artifacts; LLMs are one kind of experiment in that lab.
-
-### What / why / how / where
-
-| | |
-|--|--|
-| **What** | A map of terms so “AI,” “ML,” and “ChatGPT-style models” are not treated as synonyms. |
-| **Why** | The wrong circle leads to the wrong project. A tax formula does not need an LLM. A 60-page policy summary is a poor fit for a five-line `if`. |
-| **How** | Ask: does the system follow rules I wrote, learn a pattern, or produce new content? |
-| **Where** | Product pitches, architecture reviews, and the Week 1 quizzes. |
-
-**Discriminative vs generative:** A discriminative model answers “which class is this?” A generative model answers “what new thing could come next?” Fraud scoring is discriminative. Drafting an email is generative.
+Today’s class is a sorting class. People walk in using the word AI for five different machines, and then they pick a tool because it is fashionable. By the end you should be able to take a one-line business request and say which machine it is, why the others would be irresponsible, and what kind of answer that machine is even capable of giving.
 
 ---
 
-## 🟢 Three ways a “model” decides (AI → ML → DL)
+## 🟢 The picture we drew first
 
-| Layer | How it decides | Human analogy |
-|-------|----------------|---------------|
-| **Classic AI** | Rules you wrote | Traffic cop with a manual: red → stop |
-| **ML** | Learns from examples | Child learns “dog” after seeing many dogs |
-| **Deep Learning** | Many layers learn features automatically | Brain builds vision in stages (edges → shapes → face) |
+Draw four nested circles. Do not draw them as a timeline. A timeline makes students think the old circles died. They did not. GST is still a rule. A credit score is still classical ML. A chatbot is GenAI. They are alive on the same day, and the engineer’s first job is to point at the right circle.
 
-**Key:** All are “models” = **input → process → output**. The difference is *where the logic lives* (your code vs learned weights).
+```
++------------------------------------------------------+
+| AI: a machine doing a task that looks like judgment  |
+|   +----------------------------------------------+   |
+|   | ML: the rule was estimated from examples     |   |
+|   |   +--------------------------------------+   |   |
+|   |   | DL: many layers learn the clues      |   |   |
+|   |   |   +------------------------------+   |   |   |
+|   |   |   | GenAI: the output is new     |   |   |   |
+|   |   |   | content, not only a label    |   |   |   |
+|   |   |   |   +----------------------+   |   |   |   |
+|   |   |   |   | LLM: GenAI for words |   |   |   |   |
+|   |   |   |   +----------------------+   |   |   |   |
+|   |   |   +------------------------------+   |   |   |
+|   |   +--------------------------------------+   |   |
+|   +----------------------------------------------+   |
++------------------------------------------------------+
+```
 
-### Definitions
+Read the picture from the outside.
 
-- **Model:** A function that turns inputs into an output. In rules, you wrote the function. In ML, training estimates the function from examples.
-- **Rule:** An explicit instruction such as “if password length < 12, reject.” Same input always gives the same output. That property is called **deterministic**.
-- **Learning:** Adjusting internal numbers so the model’s mistakes on past examples get smaller.
-- **Feature (human-made):** A column you designed, such as “distance from home.” Classical ML often needs these.
-- **Representation (learned):** A pattern the network discovers, such as “this patch of pixels is an edge.” Deep learning is valuable when you cannot hand-write those patterns.
+**Artificial Intelligence** is the campus. A recommendation, a fraud alert, a chatbot, and a hand-written eligibility rule that a product manager calls “our AI” can all sit on this campus. The word alone does not tell you how the decision is made. If a vendor says “AI-powered GST calculator,” ask them to open the circle. You will often find a multiplication.
 
-**Why deep learning is not always better:** On a small table of age and income, a simple model is easier to explain, cheaper to train, and often just as accurate. Deep learning earns its cost when the raw signal is an image, a long document, or audio.
+**Machine Learning** is one department. The machine learns from data instead of only following rules a person typed. “Learns” is not a metaphor. It means there is a set of old examples, each example has an input and a known answer, and a procedure adjusts internal numbers until the mistakes on those examples get smaller. No examples, no learning. A coin toss has inputs and has no learnable answer.
 
-**Where the logic lives:** Open the source of a rules engine and you can read the decision. Open a trained network and you see numbers called **weights**. The decision procedure is those numbers plus the architecture, which is why explanation tools show up later in the course.
+**Deep Learning** is a method inside that department, not a synonym for “good ML.” Many layers of a neural network build the clues themselves. A classical model wants you to hand it a column called “distance from home.” A deep vision model starts from pixels and discovers edges, then parts, then objects, because you could not write those columns by hand. Deep learning is hungry: it wants large data and, usually, a GPU. On a small table of age and income it is often a worse engineering choice than a simple model you can explain.
 
----
+**Generative AI** is the lab that creates a new artifact. This is the circle students collapse. A model that says “spam” or “not spam” is doing discrimination in the technical sense: it discriminates one class from another. A model that writes the email is generative. Most modern GenAI is deep learning, but plenty of deep learning is not generative. A face detector does not need to invent a new face.
 
-## 🟢 Rules vs ML vs GenAI (from class quizzes)
+**Large Language Models** are generative models for language. The usual architecture is the **Transformer**, from the 2017 paper *Attention Is All You Need*. You do not need the paper today. You need the consequence: the model’s native act is “given the text so far, what piece of text comes next?” It is not “look up the paragraph in a trusted file.” If you want the trusted file, you have to build the lookup around the model. That lookup is RAG, and it belongs to Module 2.
 
-| Situation | Best tool | Why |
-|-----------|-----------|-----|
-| GST = 18% of price | **Rules** | Exact formula, no learning needed |
-| UPI fraud in 15 ms | **Predictive ML** | Patterns in 50+ signals |
-| Summarize 60-page RBI circular | **GenAI (LLM)** | New natural language from unstructured text |
-| Password ≥12 chars + digit | **Rules** | Deterministic check |
-| Tomorrow’s grid load (MW) | **ML regression** | Patterns in time series / weather |
+Memory line from the board: AI is the campus, ML is one department, deep learning is a method, GenAI is the lab that makes new things, and an LLM is one bench in that lab.
 
-**Career rule from faculty:** Don’t use ML when **~5 IF/ELSE rules** work. Use ML when patterns are **too complex or change too fast** to hard-code.
+### Two words we stopped to define because the class mixed them up
 
-### Say each abbreviation out loud
+**Discriminative** means the model answers “which bucket is this?” Fraud or legitimate. Rain or no rain. Species of iris.
 
-| Short form | Full form | Meaning in the row above |
-|------------|-----------|--------------------------|
-| **GST** | Goods and Services Tax | A legally fixed percentage. There is nothing to learn. |
-| **UPI** | Unified Payments Interface | India’s real-time payment rail. Fraud decisions must finish in milliseconds, so the model scores a transaction as it happens. |
-| **RBI** | Reserve Bank of India | The regulator. A circular is long unstructured text; the useful output is a new summary, which is generation. |
-| **MW** | Megawatt | A continuous amount of electrical power. Predicting a number is **regression**, not a yes/no class. |
-| **ms** | Millisecond | One thousandth of a second. “15 ms” means the score must be ready before the payment flow times out. |
+**Generative** means the model answers “what new thing could come next?” A sentence, a picture, a SQL query.
 
-**How to choose in a meeting:**
-
-1. Is the correct answer a formula or a policy you can write completely? Use rules.
-2. Is the correct answer a label or a number that humans can show with past examples, but cannot write as a short formula? Use predictive ML.
-3. Is the useful output new language, code, or media? Use GenAI, and still check facts.
-4. If a task mixes them, split it. Example: an LLM drafts a fraud analyst’s note, but a classical model produces the risk score. Do not ask the LLM to be the only control on a 15 ms payment decision.
-
-**Where this fails:** People reach for GenAI because it is new. A password rule implemented as a prompt is slower, less reliable, and harder to audit than `len(password) >= 12`.
+A weather product can contain both. The number P(rain) is discriminative. The paragraph “a band of rain reaches the station after 4 p.m.” is generative, and somebody still has to check it against the number.
 
 ---
 
-## 🟡 Why GenAI answers change each time
+## 🟢 Three ways a model decides
 
-LLMs don’t “look up” one answer. They compute **probability for the next token** (word piece), then **sample**.
+The word **model** is used so loosely that we pinned it. A model is a function from an input to an output. Input, process, output. The only interesting question is where the process lives.
 
-- **Temperature 0** → almost always pick the top token → stable (good for SQL/code).
-- **Temperature 0.7–1.0** → more random → creative writing.
+| Kind | Where the logic lives | The picture |
+|------|----------------------|-------------|
+| Classic rules | In source code a human can read | A traffic cop with a written manual. Red means stop. The cop does not learn red. |
+| Classical ML | In numbers estimated from examples, using clues a human designed | A child who has been shown many dogs and can now say “dog” on a new street. Someone still chose which photos to show. |
+| Deep learning | In numbers across many layers that build the clues | Vision assembled in stages: edges, then shapes, then a face. You did not name the edge. |
 
-**Engineering rule:** Treat ML/GenAI as **probabilistic**. Pair with **thresholds, guardrails, and human review**.
+A **rule** is an instruction you can finish writing. “If the password has fewer than 12 characters, reject it.” Same password, same answer, next year, unless a person edits the code. That property is called **deterministic**.
 
-### What a token and a temperature actually are
+**Learning** is what happens when you cannot finish the instruction, but you can show old cases. The internal numbers are **weights**. They are not opinions you type. A training procedure moves them.
 
-**Token:** The unit the model predicts. It is often a word piece, not a whole word. “unbelievable” might be several tokens. The model does not retrieve a stored paragraph. It repeatedly asks, “given everything so far, which token is likely next?”
+A **feature** is a clue you designed: distance from home, hour of day, income. A **representation** is a clue the network discovered: “this patch of pixels is an edge.” Classical ML lives or dies by the features. Deep learning earns its cost when the representation cannot be designed by hand.
 
-**Probability distribution:** For the next position the model has a score for every token in its vocabulary. Sampling means drawing from that list. The most likely token is not the only legal one, which is why two calls can differ.
-
-**Temperature:** A dial on how peaked that distribution is. Low temperature makes the top token dominate. High temperature lets less likely tokens win more often. It is not a measure of factual accuracy. Temperature 0 can still be confidently wrong.
-
-**Why this matters:** A support bot that must return the same refund policy every time should not be highly sampled. A brainstorming assistant can be. Neither setting removes **hallucination**, which means a fluent statement that is not grounded in a trusted source.
-
-**Where you control it:** API parameters (`temperature`, sometimes `top_p`), product settings, and eval tests that run the same prompt many times and measure how often the answer changes.
-
-| Term | Meaning |
-|------|---------|
-| **Probabilistic** | The system returns a score or a sample, not a proof. |
-| **Threshold** | A cutoff you choose, such as “block only if fraud probability ≥ 0.92.” |
-| **Guardrail** | A check around the model: block disallowed topics, require a citation, or reject invalid JSON. |
-| **SQL** | Structured Query Language. Temperature near 0 is preferred because a creative comma can break a query. |
+We stopped on a question from the second row. “If deep learning is more advanced, why does the faculty keep saying start simple?” Because advanced describes the machinery, not the fitness for the decision. A table with five columns and a legal need to explain a rejection is a bad place for a network you cannot read. A radar image is a bad place for five hand-written if statements. The shape of the data chooses the machine. The brochure does not.
 
 ---
 
-## 🟢 History in 4 milestones (why MLOps exists now)
+## 🟢 The five situations from the quiz, taught slowly
 
-1. **Rule-based (pre-2010)** — predictable, explainable, brittle at scale.
-2. **Classical ML** — learns from data; humans still craft **features**.
-3. **Deep learning** — learns features from raw images/text/audio; needs **GPU + big data**.
-4. **Foundation models / LLMs** — huge pretrained models; fine-tune or prompt for tasks.
+The faculty rule, which is worth copying in the margin: do not use ML when about five IF/ELSE rules would do the job. Use ML when the pattern is too tangled, or changes too quickly, to keep writing by hand.
 
-**Takeaway:** Modern AI is an **engineering** problem: data volume, deployment, **drift**, cost, safety.
+### 1. GST is 18% of the price
 
-### Why the history is an engineering story
+**GST** is Goods and Services Tax. The rate is published. The output is `price × 0.18`. There is no example to learn from, because a different answer is not a pattern. It is a bug. An LLM that says 18 today and 12 tomorrow is not being creative. It is failing a deterministic law. This is rules. It stays rules even if someone wraps the multiplication in a chat window.
 
-**What changed** is not only accuracy. Each stage moved work from “a developer writes logic” to “a pipeline produces a model that must be fed, deployed, and watched.”
+### 2. A UPI fraud shield in 15 milliseconds
 
-**Rule-based systems** are easy to audit and painful to maintain when the world has thousands of exceptions. A fraud rule “amount > ₹50,000 and new device” is clear, and criminals learn to stay just under it.
+**UPI** is the Unified Payments Interface, the real-time payment rail. **ms** is a millisecond, a thousandth of a second. Fifteen of them is the budget for the whole score, because the payment is waiting.
 
-**Classical ML** (logistic regression, decision trees, gradient boosting) learns those exceptions from rows in a table. A human still decides which columns exist. That design work is **feature engineering**.
+Why not rules? A criminal who reads “block amounts above ₹50,000 from a new device” will send ₹49,000 from a device that is two days old. The signal is fifty weak clues at once: amount, hour, distance from the customer’s usual place, device age, merchant category. No one can write the combination, and the combination moves every month. That is predictive ML. The model emits a probability. A threshold, which is still a rule, turns the probability into block, review, or allow.
 
-**Deep learning** removes much of that design for images, speech, and text, and sends the bill to hardware. A **GPU** (graphics processing unit) does the huge matrix math. A normal **CPU** is often too slow for training large networks.
+Why not an LLM? It does not produce a calibrated probability on a 15 ms budget, and a fluent sentence is not a control. You may later ask a model to draft the analyst’s note. The decision itself stays a small scored model.
 
-**Foundation model:** A model pretrained on a very broad dataset so many tasks can start from it. You **prompt** it (give instructions at request time) or **fine-tune** it (continue training on your smaller dataset). You usually do not train it from empty weights.
+### 3. Summarize a 60-page RBI circular
 
-**Drift:** The world moves away from the data the model studied. Last year’s spam no longer looks like this year’s spam. The code did not change; the correct answers did. That is why MLOps exists: training is not the end of the job.
+**RBI** is the Reserve Bank of India. The input is long unstructured text. The useful output is new text: a brief a person will read. There is no single numeric y. This is GenAI, and the class of GenAI is an LLM. The engineer’s leftover duty is that the brief can be wrong in a confident voice. A person who owns the policy still checks it, or the system is built to quote the circular rather than remember it.
 
-**Where you feel this:** A model that was approved in January quietly catches less fraud in July. Monitoring, not another algorithm name, is the fix.
+### 4. Password must be at least 12 characters and contain a digit
+
+You can write this in one boolean expression. Learning it from examples would mean hoping the model notices the rule, and then auditing a probability instead of a line of code. Rules.
+
+### 5. Tomorrow’s grid load in megawatts
+
+**MW** is megawatt, a quantity of electrical power. The answer is a number on a scale, not a bucket. Predicting a number is **regression**. The pattern lives in history, weather, and the calendar. It is too messy for a formula you would trust, and it is not a writing task. Regression ML.
+
+The habit to take out of these five: read the output first. A rate in a statute, a yes/no policy, a probability, a quantity, or a new paragraph. The output picks the circle. The industry (banking, weather, government) does not.
 
 ---
 
-## 🟡 AI in the real world (landscape)
+## 🟡 Why the same prompt gives two different paragraphs
 
-Don’t start with “which algorithm?” Start with:
+An LLM does not store your answer. It stores, in a very large set of weights, a talent for guessing the next **token**. A token is a chunk of text, often a piece of a word. “Unbelievable” may be three tokens. The model looks at the tokens so far and produces a probability for every token in its vocabulary. Then it picks one. That pick is called **sampling**. Then it does it again, and again, until it stops.
+
+This is why two calls differ. The most likely token is not the only legal token. Sampling sometimes takes the second or the tenth.
+
+**Temperature** is the dial on how peaked that list of probabilities is. It is not a dial on truth.
+
+- Temperature near 0 means “almost always take the top token.” Use it when the output is SQL, JSON, or code, where a creative comma is a broken program. **SQL** is Structured Query Language.
+- Temperature 0.7 to 1.0 means “let less likely tokens win more often.” Use it for a brainstorm, not for a refund policy that must be the same at 9 a.m. and at 9 p.m.
+
+Worked picture. Suppose the next-token probabilities are: “rain” 0.60, “drizzle” 0.30, “snow” 0.10. At temperature 0 you will see “rain” almost every time. Raise the temperature and “drizzle” shows up often enough that two summaries of the same bulletin disagree. Neither temperature checks whether it rained.
+
+The engineering sentence: ML and GenAI are **probabilistic**. They return a score or a sample, not a proof. Put three things beside them.
+
+- A **threshold**: block only if the fraud probability is at least 0.92.
+- A **guardrail**: reject the output if it is not valid JSON, if it has no citation, or if it is on a disallowed topic.
+- A **human review** where the cost of being wrong is a person losing money, time, or a right.
+
+**Hallucination** is the name for a fluent sentence that is not grounded in a source you trust. Low temperature does not cure it. A lookup into a real document, or a person, does.
+
+---
+
+## 🟢 Four milestones, and why the job became operations
+
+The history lecture is not nostalgia. Each stage moved the logic out of a file a developer can read and into an artifact that has to be fed, deployed, and watched.
+
+**1. Rule-based systems, roughly before 2010.** Predictable and explainable. You can point at the line. They become brittle when the world is mostly exceptions. Fraud rules are a clean example: each new attack adds a condition, the conditions interact, and nobody can tell you what the file will do on a Tuesday.
+
+**2. Classical ML.** The exceptions are learned from rows. A person still decides which columns exist. That design work is **feature engineering**. Logistic regression, decision trees, and gradient boosting live here. They are the right start for tables.
+
+**3. Deep learning.** The features for images, audio, and raw text are learned. The bill moves to hardware. A **GPU**, a graphics processing unit, does the huge matrix multiplications. A **CPU**, the ordinary processor, is often too slow to train a large network. You also need far more data, because the network is free to memorize if you do not give it enough reality.
+
+**4. Foundation models and LLMs.** A **foundation model** is pretrained on a very broad collection so that many tasks can start from it instead of from empty weights. You either **prompt** it, which means giving instructions and evidence at the moment of the request, or you **fine-tune** it, which means continuing training on your smaller set. You usually do not train the base model yourself. The new operational problems are cost per call, leakage of private text into the prompt, and the fact that the model will answer even when your documents do not contain the answer.
+
+**Drift** is why MLOps exists. Drift means the world moved away from the training examples. Last year’s spam no longer looks like this year’s spam. The Python file did not change. The correct answers did. A model that was approved in January can be quietly worse in July while the API still returns success. Watching for that movement is part of shipping the model, not a later hobby.
+
+---
+
+## 🟡 What we do before anyone says “which algorithm?”
+
+The order on the board was:
 
 **Problem → Decision → Data → System → Model**
 
-AI fits when decisions are:
+AI is a candidate when the decision is high volume, repetitive, time-sensitive, expensive when wrong, or too tangled for a manual rule. Fraud sorting, clinical triage, demand forecasting, and defect detection fit. A one-off judgment with no past examples does not. A fair coin does not.
 
-- High volume, repetitive, time-sensitive, costly if wrong, or too complex for manual rules.
+**Triage** means sorting cases so a human sees the dangerous ones first. The model ranks the queue. It does not become the clinician or the fraud analyst.
 
-Examples: fraud (finance), triage support (health), demand forecast (energy), defect detection (manufacturing).
+Walk a weather example in the order, so the order is not a slogan.
 
-### Walk the chain before you name an algorithm
+| Step | The question | A real answer |
+|------|--------------|---------------|
+| Problem | Whose pain? | A farmer waters, and then it rains. The water was wasted. |
+| Decision | What action changes? | Skip irrigation when rain is likely enough. |
+| Data | What can we know before the action? | Yesterday’s pressure, humidity, the radar. Not tomorrow’s rain. |
+| System | Where does the score go, and by when? | A file by 6 a.m. Batch is enough. A chatbot is not the product. |
+| Model | What family fits that data? | A tabular time-series model. The algorithm name comes last. |
 
-| Step | Question you must answer | Weather example |
-|------|--------------------------|-----------------|
-| **Problem** | Whose pain is this? | A farmer waters a field that then gets rain. |
-| **Decision** | What action changes? | Skip irrigation when rain is likely. |
-| **Data** | What can we know before the decision? | Yesterday’s pressure, humidity, radar. Not tomorrow’s rain. |
-| **System** | Where does the score go, and how fast? | A 6 a.m. batch file to the planner’s app. |
-| **Model** | Which family fits that data? | Tabular time series first, not a chatbot. |
-
-**Why this order:** Choosing “we will use a transformer” before you know the decision produces a demo, not a system. The model is the last box because it is replaceable. The decision and the data contract are not.
-
-**Where AI is a bad fit:** One-off judgments with no past examples, decisions that are pure chance, or places where a wrong automated action cannot be reviewed and the harm is irreversible. The course later calls the pure-chance case infeasible (a coin toss).
-
-**Triage** means sorting cases by urgency so a human sees the risky ones first. The model does not replace the clinician or the fraud analyst; it ranks the queue.
+If you name the algorithm at step 1, you will build a demo. The decision and the data are the parts you cannot casually replace.
 
 ---
 
-## 🟢 Glossary (pin this)
+## 🟢 Glossary we pinned before leaving
 
-| Term | Plain English |
-|------|----------------|
-| **Feature (X)** | Input the model sees (age, income, pixels, words) |
-| **Label / target (y)** | Correct answer in training (fraud yes/no, price, species) |
-| **Weight (w)** | How important each feature is (learned, not guessed) |
-| **Bias (b)** | Baseline “starting point” before features. In this math sense it is not social bias. |
-| **Inference** | Using a trained model on **new** data |
-| **Training** | The earlier phase that adjusts weights using historical examples |
-| **Ground truth** | The true label you trust (when you have it) |
-| **Algorithm** | The learning procedure (how weights are updated) |
-| **Architecture** | The shape of the model (one neuron, a tree, a transformer) |
-| **Parameter** | A number the training procedure learns (weights and biases) |
+| Term | The sentence we wrote |
+|------|------------------------|
+| Feature, X | A fact the model is allowed to see when it decides. |
+| Label or target, y | The correct answer on a historical row. Fraud or not. A price. A species. |
+| Weight, w | A learned multiplier. It says how hard that fact pushes the decision. |
+| Bias, b | The starting score before any fact is considered. Not social bias. |
+| Training | The phase that is allowed to look at y and move the weights. |
+| Inference | Using the frozen weights on a new row, when y has not happened. |
+| Ground truth | The label you have decided to trust. A rain gauge, or an expert’s judgment after a written guide. |
+| Algorithm | The procedure that moves the weights. |
+| Architecture | The shape: one neuron, a tree, a transformer. |
+| Parameter | A number the procedure learns. Weights and the bias term. |
 
-**Inference vs training:** Training may take hours and looks at the answers. Inference takes milliseconds and must not look at the answer, because in production the answer has not happened yet.
-
----
-
-## Checkpoint (answer without peeking)
-
-1. Is “predict apartment price in ₹” classification or regression?
-2. Why is 99% accuracy misleading for 1% fraud rate?
-3. Name one task for rules and one for GenAI.
-
-*Answers in [04-classification-regression-and-metrics.md](04-classification-regression-and-metrics.md) and [07-case-studies-quizzes-and-coding-lab.md](07-case-studies-quizzes-and-coding-lab.md).*
-
-**How to grade yourself:** (1) Regression, because rupees are a continuous number. (2) A model can ignore every fraud and still be right on the 99% of legitimate payments. (3) GST or password length is rules; summarizing a circular is GenAI.
+The difference the exam likes: training may take an hour and is allowed to see the answers. Inference takes milliseconds and must not see the answer, because in production the answer is in the future.
 
 ---
 
-**Next:** [02-rules-learning-and-ai-sdlc.md](02-rules-learning-and-ai-sdlc.md)
+## Checkpoint
+
+Answer these before you open the next file. Say them in sentences.
+
+1. Is “predict an apartment price in rupees” classification or regression?
+2. Why is 99% accuracy a misleading celebration when only 1% of payments are fraud?
+3. Name one task that should stay a rule, and one that is genuinely GenAI.
+
+When you have tried: (1) Regression, because rupees are a quantity, not a bucket. (2) A model that calls every payment legitimate is right on the 99% and catches no fraud. The easy majority fills the score. (3) GST or the password length is a rule. Summarizing the circular is GenAI. The full arithmetic of (2) is the metrics class.
+
+**Next class:** [02-rules-learning-and-ai-sdlc.md](02-rules-learning-and-ai-sdlc.md)

@@ -1,219 +1,142 @@
-# Session notes — Collection, ingestion, lifecycle
+# Class notes — How data arrives, and why we do not edit the original
 
-*Module 2 Session 1.*
+*Module 2, Session 1, continued.*
 
-**Collection** is how a fact enters your control. **Ingestion** is how it lands in your platform without being silently edited. **Lifecycle** is the rest of the path until the data is retired. A model never sees “the weather.” It sees whatever this path kept.
+Scoping told us what decision we are allowed to support. This class is about the path a fact takes from a station, a database, or a person into a table a model may later read. **Collection** is how the fact enters your control. **Ingestion** is how it lands in the platform without being silently rewritten. The **lifecycle** is everything after that, until you are required to delete it.
+
+The model never sees “the weather.” It sees whatever this path kept.
 
 ---
 
-## 🟢 Data lifecycle (loop)
+## 🟢 The loop, and the 10× warning
 
 ```
-Collect → Clean → Validate → Label → Version → Monitor (drift)
+Collect → Clean → Validate → Label → Version → Monitor for drift
 ```
 
-**Principle:** A model is only as good as its data; late defects cost ~10× more.
+Any box can send you backward. Monitoring finds a shift and sends you back to collection. Validation fails and sends you back to cleaning. This is not a school project you finish.
 
-**What the loop is saying:** Every box can send you backward. Monitoring finds drift, which sends you back to collection. Validation fails, which sends you back to cleaning. The arrows are not a single school project you finish.
+The principle on the slide: a model is only as good as its data, and a defect found one stage later costs on the order of ten times more. The ten is a rule of thumb, not a measurement we took on the weather file. Use it as a reason to detect early. A bad unit found in the raw file is a one-line repair. The same bad unit found after three models, a dashboard, and a farmer-facing service is an incident. Profile on arrival. Put the checks in the pipeline. Keep the raw file so you can redo a bad transform without asking the station to send the day again.
 
-**Why late defects cost more:** A bad unit found in the raw file is a one-line fix. The same bad unit found after three models, a dashboard, and a farmer-facing API is a product incident. The “10×” figure is an engineering rule of thumb for the cost of fixing a defect one stage later, not a measured constant from the weather file. Use it as a warning to detect early.
-
-**How you honor the principle:** Profile on arrival. Put checks in the pipeline, not in someone’s memory. Keep the raw file so you can repair a bad transform without asking the station to resend.
-
-**Where each box is taught:** Cleaning and validation are the next file. Labels, versions, and search are the file after that. Drift monitoring is the trust file.
+Cleaning and validation are the next class. Labels, versions, and search are the class after that. Drift is the trust class.
 
 ---
 
-## 🟡 Collection techniques
+## 🟡 Where rows come from, and the way each source fails
 
-| Source | Examples | AWS patterns |
-|--------|----------|--------------|
-| Sensors / IoT | Weather stations | IoT Core |
-| APIs / DB exports | Partner CSV, RDS | AppFlow, DMS, Glue |
-| Logs / events | Clickstream | Kinesis |
-| Open / purchased | Registry of Open Data, Data Exchange | Check licence |
-| Human | Surveys, annotations | Ground Truth, Label Studio |
-| Synthetic | Fill gaps, privacy | Validate vs real data |
+Every source owes you four facts: where it came from, how often it updates, what licence applies, and who to call when a column changes meaning.
 
-**What you owe every source:** where it came from, how often it updates, what licence applies, and who to call when a column changes.
+**Sensors, through IoT Core.** A weather station publishes a message. AWS IoT Core receives device messages. The failure is a replaced sensor that quietly starts sending a new unit. Nothing crashes. The column name still says Celsius.
 
-| Source | What it is | The failure mode |
-|--------|------------|------------------|
-| **IoT Core** | AWS service that receives device messages | A replaced sensor sends a new unit and the old pipeline never notices |
-| **RDS** | Relational Database Service, a managed SQL database | An export that includes columns the model must not see, or a query that hits production too hard |
-| **AppFlow** | Managed transfer from SaaS apps into AWS | Easy to turn on, easy to forget as a data contract |
-| **DMS** | Database Migration Service | Good for ongoing replication; schema changes still break downstream jobs |
-| **Glue** | Serverless jobs and the catalog | A job that “succeeds” while writing an empty partition |
-| **Kinesis** | Streaming buffer | Records you never replay after a bug in the consumer |
-| **Clickstream** | The sequence of clicks or events | Logs that were designed for debugging, not for labels, with no consent review |
-| **Registry of Open Data / Data Exchange** | Catalogs of public or paid datasets | A licence that allows study and forbids commercial models |
-| **Ground Truth** | SageMaker’s managed labeling | You still write the instructions; the service does not know your edge cases |
-| **Label Studio** | An open-source labeling app | You operate it |
-| **Synthetic data** | Artificial rows or images made to fill a gap or avoid using real people | Models that learn the generator’s habits and fail on real stations |
+**Databases and partner files.** **RDS** is the Relational Database Service, a managed SQL database. **AppFlow** moves data from software-as-a-service products into AWS. **DMS** is the Database Migration Service, used for ongoing replication. **Glue** runs serverless jobs and holds the catalog. The failure mode is an export that includes a column the model must not see, or a job that “succeeds” while writing an empty partition, or a schema change that breaks the reader on Tuesday.
 
-**Why synthetic data is last:** It is useful when real examples are rare or sensitive. It is not ground truth. Always score the model on real held-out data.
+**Logs and clickstreams, through Kinesis.** A clickstream is the sequence of events. Kinesis is the buffer that holds them. Logs were often designed for debugging a service, not for training a model, and they may contain PII nobody reviewed. The failure is a bug in the consumer and no way to replay the day.
+
+**Open and purchased data.** The Registry of Open Data and AWS Data Exchange are catalogs. The failure is a licence that allows you to study the file and forbids you to ship a commercial model. Read the licence before you celebrate the download.
+
+**People.** Surveys and annotations. **SageMaker Ground Truth** is the managed labeling workforce. **Label Studio** is the open-source app you host yourself. The failure is a guide that two honest annotators read differently. That is a whole class of its own.
+
+**Synthetic data.** Artificial rows or images, used to fill a gap or to avoid using real people. The failure is a model that learned the habits of the generator and fails on a real station. Synthetic data is not ground truth. The test set stays real.
 
 ---
 
-## 🟡 Batch vs streaming
+## 🟡 Batch and streaming, and the zone both of them land in
 
 | | Batch | Streaming |
-|---|-------|-----------|
-| **Pattern** | Daily CSV drop | Sensors every minute |
-| **Latency** | Hours | Seconds |
-| **AWS** | Scheduled Glue, DMS | IoT Core + Firehose |
-| **Landing** | S3 **raw** zone (immutable) | S3 **raw** zone (immutable) |
+|--|-------|-----------|
+| The picture | A CSV arrives once a day | A sensor speaks every minute |
+| How late the decision may be | Hours | Seconds |
+| The AWS shape | A scheduled Glue job, or DMS | IoT Core into Firehose |
+| Where the first copy lives | The raw zone, never edited | The raw zone, never edited |
 
-**Never edit raw** — it’s your audit trail. Clean copies go to `clean/` and `curated/`.
+**Batch** means the data accumulates and is processed as a set. A nightly file of station readings is batch. Hours of latency are acceptable if the farmer needs the score at 6 a.m.
 
-**What batch means:** Data accumulates and is processed as a set. A nightly file of station readings is batch. The decision latency is hours, which is acceptable if the farmer needs the score at 6 a.m.
+**Streaming** means each event is handled soon after it happens. An alert that must fire this minute is a stream. **Firehose** collects those events into files on S3, so the rest of the tools can read objects rather than hold a socket open forever.
 
-**What streaming means:** Each event is handled soon after it happens. A station that reports every minute, and an alert that must fire this minute, is a stream. **Firehose** batches those events into files on S3 so later tools can read objects rather than a never-ending socket.
+Both land in **raw**, and raw is **immutable**. Immutable means you do not overwrite the evidence. You write a new object or a new version. If cleaning has a bug, you rerun it from raw. If you “fixed” the raw object in place, you have destroyed the ability to tell a sensor fault from a pipeline fault. Clean copies go to `clean/`. Feature-ready copies go to `curated/`.
 
-**Why both land in immutable raw:** The first stored copy is the evidence of what arrived. If cleaning has a bug, you rerun it from raw. If you “fixed” the raw object in place, you destroyed the evidence and cannot tell a sensor fault from a pipeline fault.
-
-**Immutable** means you do not overwrite. You write a new object or a new version. S3 versioning, covered later, is the mechanism.
-
-**Where people mix them up:** Using a stream because it sounds modern, then waiting a day to act. Or using batch for fraud that must be decided in 15 ms. Match velocity to the decision from the scoping notes.
+The design mistake is using a stream because it sounds modern, and then waiting a day to act. Or using a nightly file for a fraud decision that has 15 milliseconds. Velocity follows the decision from the scoping class, not the novelty of the service.
 
 ---
 
-## 🟡 Lake zones (S3 convention)
+## 🟡 The three zones, said as permissions
 
-| Zone | Contents | Who writes |
-|------|----------|------------|
-| `raw/` | As received | Ingestion |
-| `clean/` | Validated, typed Parquet/CSV | Pipelines + DQ rules |
-| `curated/` | Feature-ready, versioned | ML teams |
+A **data lake** is a store of files, here on S3, in both original and refined forms, that many tools can read. A **lakehouse** adds a catalog and SQL on top of those files. In this course that is the Glue Catalog plus Athena.
 
-**What a data lake is:** A store that keeps data in files, often S3, in its original and refined forms, and lets many tools read it. A **lakehouse** adds table management and SQL on top of those files (Glue Catalog plus Athena in this course).
-
-**Why three zones exist:**
-
-| Zone | What you are allowed to assume | What you must not do |
-|------|--------------------------------|----------------------|
+| Zone | What you may assume | What you may not do |
+|------|---------------------|---------------------|
 | `raw/` | “This is what the source sent.” | Train on it, or edit it to hide a defect |
-| `clean/` | Types are parsed, duplicates handled, validation has run | Add business-specific features that only one model wants |
-| `curated/` | The feature table matches the contract for a decision | Silently overwrite last month’s version |
+| `clean/` | Types are parsed, duplicates are handled, validation has run | Hide a feature that only one model wants |
+| `curated/` | The feature table matches the contract, and it is versioned | Silently overwrite last month, because last month’s model still needs to be explainable |
 
-**Parquet** is a columnar file format. It stores each column together and compresses well. CSV stores rows as text. The clean zone often converts to Parquet because later scans are cheaper. The idea is explained again in the scale notes; you only need the meaning here.
+**Parquet** is a columnar file format. Each column is stored together and compresses well. CSV stores a row as a line of text. The clean zone often converts to Parquet because later queries read less. The scale class explains the bill. For now, Parquet means “the efficient copy,” not “the original.”
 
-**Who writes curated:** The notes say ML teams because feature choices are model choices. In many companies a data team writes curated and ML consumes it. The course’s point is the handoff, not the org chart. Someone owns the contract.
-
----
-
-## 🟡 Text data treatment
-
-| Step | Purpose |
-|------|---------|
-| Filter | Language, length, spam |
-| Redact | PII (e.g. Comprehend) |
-| Normalise | Case, whitespace, encoding |
-| Split | Tokens/chunks for LLM/RAG |
-| Deduplicate | Exact & near-dup |
-| Embed | Vectors for search |
-
-Different downstream tasks need different treatment (classifier vs raw LLM).
-
-**What each step is protecting:**
-
-| Step | What | Why | Where it can go wrong |
-|------|------|-----|------------------------|
-| **Filter** | Drop the wrong language, empty notes, and spam | A classifier learns the junk you leave in | Dropping rare but real severe-weather bulletins because they are short |
-| **Redact** | Remove emails, phone numbers, names | Bulletins and logs often contain PII you do not need for rain | A redaction miss that ships into a prompt |
-| **Comprehend** | AWS natural-language API that can detect entities such as names | A ready-made detector, not a policy. You still decide what to remove. | Trusting it as complete |
-| **Normalise** | Make “Rain” and “rain” and stray spaces comparable | Otherwise duplicates and string rules miss | Lowercasing a station code you needed to keep distinct, if you apply it to the wrong column |
-| **Split** | Break long text into chunks or tokens | Models and embedding indexes have length limits | Cutting a negation (“no rain”) away from the word “rain” |
-| **Deduplicate** | Remove exact copies and near copies | Duplicates inflate accuracy and leak across train and test if you split after | Deleting a repeated warning that was genuinely issued twice |
-| **Embed** | Convert text to a vector | Enables “find similar bulletins” | Embedding text you would not be allowed to search later |
-
-**Why the downstream task changes the treatment:** A classifier may want normalized, deduplicated, labeled sentences. An LLM that must quote the forecaster should see the original wording, with PII still removed. Keep a raw text copy and a task-specific copy.
+Who writes curated? The notes say the ML teams, because feature choices are model choices. In many companies a data team writes it and ML consumes it. The lesson is the handoff, not the org chart. Someone owns the contract, and training does not get to wander into raw.
 
 ---
 
-## 🟡 Time-series rules (WeatherWise)
+## 🟡 What we do to text before it is allowed to train or to be searched
 
-1. **Sort by time**; store **UTC**
-2. **Resample** to regular spacing; mark gaps
-3. **Seasonality features** — hour, day-of-year
-4. **Lag features** — yesterday’s pressure
-5. **No leakage** — future values must not enter features or scalers
-6. **Chronological split** — train on past, test on future (**not random shuffle**)
+Text is not “just a column.” The bulletin class needs a sequence of decisions.
 
-**UTC** means **Coordinated Universal Time**, the timezone-free clock. Store timestamps in UTC and convert to local time only for display. Mixing IST timestamps that have no offset with UTC timestamps looks like a small cleaning issue and shifts every “tomorrow.”
+**Filter.** Drop the wrong language, the empty notes, and the spam. The risk is dropping a short but real severe-weather bulletin because a length rule was lazy.
 
-**What resample means:** Stations do not all report on the same second. Resampling buckets them onto a regular grid, such as one row per station per hour. A missing hour stays missing and is marked. Filling it silently with a copy of the previous hour hides an outage.
+**Redact.** Remove emails, phone numbers, and names. **Amazon Comprehend** is a natural-language API that can detect entities such as names. It is a detector, not a policy. You still decide what must be removed, and you still assume it will miss some.
 
-**Seasonality:** Weather repeats daily and yearly. Hour of day and day of year let a tree or a linear model express “afternoons are warmer” without a special architecture.
+**Normalise.** Make “Rain” and “rain” and stray spaces comparable, so duplicate detection and string rules work. Do not lowercase a station code if the case is meaningful. Apply normalisation to the column that needs it, not to the whole row by reflex.
 
-**Lag feature:** A column that contains an earlier value, such as pressure 24 hours ago. Lags are legal because they are known before the decision. A **lead** (tomorrow’s pressure) is not legal when predicting tomorrow.
+**Split.** Break long text into tokens or chunks. Models and indexes have length limits. The risk, which we will meet as a labeling bug, is cutting the word “no” away from the word “rain.”
 
-**Why random shuffle is forbidden:** If you shuffle, Tuesday’s row can land in training and Monday’s row in test. The model studies the future to predict the past. The test score is fiction. Split by time: train on history, test on the latest period, and do not fit scalers using the test period.
+**Deduplicate.** Remove exact copies and near copies. Duplicates inflate accuracy, and if you split into train and test after duplicating, the same bulletin sits on both sides. The risk is deleting a warning that was genuinely issued twice. Exact duplicates and true repeated events are different. Keep a timestamp so you can tell them apart.
 
-**How leakage hides in time series:** A “daily mean” computed with the whole day, including hours after the decision. A target `rain_tomorrow` built from a column that already peeked. A gap filled using the next valid reading (that is future information). Interpolation must only use the past, or it must be treated as a feature that would be computable at that time.
+**Embed.** Turn the text into a vector so similar bulletins can be found. Do not embed text you would not be allowed to search later. The vector is a copy of the information.
+
+Keep a raw text copy and a task-specific copy. A classifier wants normalised, deduplicated, labeled sentences. A model that must quote the forecaster should see the original wording, with PII still removed.
 
 ---
 
-## 🟡 Data augmentation & synthetic
+## 🟡 Six rules for weather in time
 
-- **Images:** rotate, flip, brightness (labels must stay valid)
-- **Tabular synthetic:** SDV-style generators
-- **Text synthetic:** LLM-generated examples — **human spot-check**
-- **Synthetic ≠ truth** — always evaluate on real held-out data
+This is the section the rain model lives or dies on.
 
-**Augmentation** means creating a new training example by a change that should not change the label. Flipping a radar image horizontally might be fine. Flipping it in a way that moves a storm onto a different city is not. The label must stay true after the change.
+**1. Sort by time, and store UTC.** **UTC** is Coordinated Universal Time, the clock without a local timezone. Store timestamps in UTC. Convert to local time only when a person looks at the screen. A file that mixes “5:30 p.m. in India, no offset stored” with UTC will shift every “tomorrow” by several hours, and the shift will look like a small cleaning nuisance.
 
-**SDV** means **Synthetic Data Vault**, a family of tools that learn a table’s distribution and sample new rows. The rows are plausible, not observed. They can fill a privacy or class-balance need. They also reproduce whatever bias was in the real table.
+**2. Resample onto a regular grid, and mark the gaps.** Stations do not all speak on the same second. Resampling buckets them, for example one row per station per hour. A missing hour stays missing and is marked. Copying the previous hour into the gap hides an outage. Sometimes “the sensor was down” is the signal.
 
-**Why humans spot-check LLM text:** A generated bulletin can say “no rain” in wording your labeler marks as rain, or it can invent a station. Synthetic text that was never reviewed becomes confident garbage with a label.
+**3. Seasonality features.** Hour of day and day of year let a tree express “afternoons are warmer” and “June behaves like June” without a special architecture.
 
-**Where the evaluation rule applies:** The test set is real. If you also test on synthetic data, you are partly grading the generator.
+**4. Lag features.** A lag is an earlier value, such as yesterday’s pressure. Lags are legal because they are known before the decision. A **lead**, tomorrow’s pressure, is not legal when the decision is about tomorrow.
 
----
+**5. No leakage into features or scalers.** A daily mean that includes hours after the decision is future information. Filling a gap with the next valid reading is future information. Fitting the scaler on the whole period, including the test months, is future information of a quieter kind.
 
-## 🟡 safetensors vs pickle
+**6. Split by time.** Train on the past. Test on a later period. Do not shuffle. If you shuffle, Tuesday can land in training and Monday in the test. The model studies the future to predict the past. The score is fiction. The live system, on Monday morning, cannot see Tuesday.
 
-| | Pickle | safetensors |
-|---|--------|-------------|
-| Risk | Can execute code on load | Tensors + metadata only |
-| Use | Legacy hubs | Preferred for sharing models |
-
-Treat model files like **executables**.
-
-**What pickle is:** Python’s built-in way to turn an object into bytes. Loading a pickle can run arbitrary code that was saved inside it. A model file from an untrusted URL can be a program, not only numbers.
-
-**What safetensors is:** A format that stores tensors (the numeric arrays) and a small header. Loading it does not execute Python. That is why it is safer to share.
-
-**Why “treat models like executables”:** Whoever can change the file can change the decisions, or worse, run code on the machine that loads it. Store model files in the same kind of controlled bucket as code artifacts, with versions and access control.
-
-**Where this shows up:** Downloading a “helpful” preprocessor from a public hub, or emailing a `.pkl` between teammates. Prefer safetensors for weights, and job code that is reviewed like application code.
+Do the check by hand on one station. Print three consecutive days. Confirm that Monday’s features contain Sunday and not Tuesday, and that the label “did it rain on Tuesday?” is the label, not a feature.
 
 ---
 
-## 🟡 Annotation overview (preview Session 2)
+## 🟡 Augmentation, synthetic data, and model files that execute
 
-- **CVAT** — vision/video; model-assisted boxes
-- **Label Studio** — flexible, self-hosted
-- **Ground Truth** — managed AWS workforce
+**Augmentation** creates a new training example by a change that must not change the label. Rotating a photo or changing its brightness can be fine. Flipping a radar image so that a storm moves onto another city is not. The label has to remain true after the change, or you have manufactured a lie.
 
-**Model-assisted labeling:** model proposes → human corrects → faster than draw-from-scratch.
+**SDV**, the Synthetic Data Vault, is a family of tools that learn a table and sample new rows. The rows are plausible. They were not observed. They also reproduce whatever bias was in the real table. LLM-written bulletins need a human spot check, because the generated sentence can say “no rain” in wording your labeler marks as rain, or it can invent a station. The evaluation set is real. If you also score the model on synthetic data, you are partly grading the generator.
 
-**Annotation** means a human (or a program with review) attaching the label: a class, a bounding box, a span of text.
+**Pickle** is Python’s way of turning an object into bytes. Loading a pickle can run code that was saved inside it. A model file from a link can be a program. **safetensors** stores numeric tensors and a small header, and loading it does not execute Python. Prefer it when you share weights. Treat every model file like an executable: controlled bucket, access control, versions. Emailing a `.pkl` across a team is how this lesson gets learned the hard way.
 
-| Tool | What it is best at | What you still own |
-|------|--------------------|--------------------|
-| **CVAT** | Computer Vision Annotation Tool. Boxes and tracks on images and video. | The label guide and the review |
-| **Label Studio** | Many data types in one open-source app | Hosting, access, and the schema |
-| **Ground Truth** | A managed workforce inside AWS | Instructions, gold questions, and quality checks |
+---
 
-**Why model-assisted labeling helps:** Drawing every radar box from scratch is slow. A model proposes a box, and the human fixes it. The risk is that humans accept a plausible wrong box. Keep a sample that is labeled from scratch so the model’s mistakes are visible.
+## 🟡 Labeling tools, only as a preview
+
+**Annotation** means attaching the label: a class, a box around an object, a span of text. **CVAT**, the Computer Vision Annotation Tool, is built for boxes and tracks on images and video. Label Studio is flexible and self-hosted. Ground Truth is the managed AWS workforce. In all three, you still own the guide.
+
+**Model-assisted labeling** means the model proposes a box or a class and a person corrects it. It is faster than drawing from scratch. The risk is that people accept a plausible wrong proposal. Keep a sample that is labeled from scratch, so the model’s mistakes stay visible. The next class turns this preview into a workflow with a number for agreement.
 
 ---
 
 ## Checkpoint
 
-Why is chronological split mandatory for rain prediction?
+Why is a random shuffle an invalid test for rain prediction? Describe one specific way the future would leak into the past.
 
-**Answer:** Rain is a time series. A random split puts future weather into training and past weather into test, so the model cheats by learning from later days. The live system can only see the past when it predicts tomorrow. Train on earlier dates, test on later dates, and fit every scaler only inside the training period.
+Because the decision on Monday morning can only see Sunday and earlier. A shuffle can place Tuesday’s row in the training set and Monday’s row in the test set, so the model is examined on a day it has already, indirectly, studied past. The same leak happens if a scaler is fit on the whole year, including the test months, or if a gap on Monday is filled using Tuesday’s reading.
 
-**Next:** [03-cleaning-and-validation-weatherwise.md](03-cleaning-and-validation-weatherwise.md)
+**Next class:** [03-cleaning-and-validation-weatherwise.md](03-cleaning-and-validation-weatherwise.md)

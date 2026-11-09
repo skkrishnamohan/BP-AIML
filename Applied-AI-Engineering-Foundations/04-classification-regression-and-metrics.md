@@ -1,218 +1,179 @@
-# Session notes — Metrics that don’t lie (and often do)
+# Class notes — Metrics, and the numbers that flatter you
 
-*Based on: Student Guide (confusion matrix, Iris lab), Week 1 quiz #3.*
+*Student guide, the confusion-matrix and Iris material, and Week 1 quiz 3.*
 
-A metric is a number that answers one question. The common failure in this module is using a number that answers a different question from the one the business asked.
-
----
-
-## 🟢 Confusion matrix — four boxes
-
-For “positive class” (e.g. Dog, Fraud, Rain):
-
-|  | Predicted + | Predicted − |
-|--|-------------|-------------|
-| **Actually +** | **TP** (right hit) | **FN** (miss) |
-| **Actually −** | **FP** (false alarm) | **TN** (right reject) |
-
-### Definitions, not just letters
-
-| Cell | Expansion | Definition | Meaning |
-|------|-----------|------------|---------|
-| **TP** | True positive | Predicted positive and it was positive | You caught a real fraud, a real tumor, a real rainy day |
-| **FN** | False negative | Predicted negative and it was positive | You missed it. The costly miss in safety and fraud |
-| **FP** | False positive | Predicted positive and it was negative | A false alarm. A legitimate mail marked spam |
-| **TN** | True negative | Predicted negative and it was negative | Correctly left alone |
-
-**What “positive” means:** It is the class you chose to care about, not a moral good. You must declare it. In fraud, positive usually means “fraud.” If someone flips the coding so 1 means “legit,” every formula still runs and every conclusion reverses.
-
-**Why four boxes instead of one accuracy:** Accuracy adds TP and TN and forgets which kind of mistake you made. The matrix keeps the mistakes separate so precision and recall can ask different questions.
-
-**How to read a matrix:** Rows are reality. Columns are the model’s claim. Practice by covering one cell and explaining who was harmed.
-
-**Where:** Iris species lab, fraud quizzes, and any `confusion_matrix(y_test, y_pred)` printout.
+A metric is a number that answers one question. The failure this class is about is celebrating a number that answered a different question from the one the business asked. We are going to build the number by hand, on a hundred payments, so that “accuracy is misleading” is an arithmetic fact and not a slogan.
 
 ---
 
-## 🟢 Accuracy
+## 🟢 Four cells, then the words
+
+Pick the **positive class** and write it down. Positive is not a moral compliment. It is the class you chose to care about. In this class, positive means fraud, unless a dataset codes it the other way. If someone flips the coding so that 1 means legitimate, every formula still runs and every conclusion is backwards. State the coding before you compute.
+
+|  | We predicted fraud | We predicted legitimate |
+|--|--------------------|-------------------------|
+| It really was fraud | **TP**, true positive, a catch | **FN**, false negative, a miss |
+| It really was legitimate | **FP**, false positive, a false alarm | **TN**, true negative, correctly left alone |
+
+Rows are reality. Columns are the model’s claim. Cover one cell and say who was harmed. A false negative is a stolen payment you allowed. A false positive is a genuine customer you blocked or delayed. Both are errors. They are not equally expensive, which is why one accuracy cannot represent them.
+
+**Recall** is also called **sensitivity** and the **true positive rate (TPR)**. **Specificity** is the twin for the negative class: of the truly legitimate payments, how many did we correctly leave alone? Specificity = TN / (TN + FP).
+
+---
+
+## 🟢 A hundred payments, done in full
+
+There are 100 payments. 1 is fraud. 99 are legitimate. That is the 1% base rate from the quiz.
+
+**Model A always says legitimate.** It never fires.
+
+- TP = 0, because it caught nothing
+- FN = 1, the fraud it waved through
+- FP = 0, because it raised no alarm
+- TN = 99
 
 \[
-\text{Accuracy} = \frac{TP + TN}{\text{all samples}}
+\text{Accuracy} = \frac{TP + TN}{100} = \frac{0 + 99}{100} = 0.99
 \]
 
-**When it’s fine:** Balanced classes, errors cost similarly.
+\[
+\text{Recall} = \frac{TP}{TP + FN} = \frac{0}{0 + 1} = 0
+\]
 
-**When it lies:** Rare events (fraud 1%, cancer 1%).
+Precision is TP / (TP + FP). Here the model made no positive predictions, so precision is undefined. You do not get to call it 100%. There were no alarms to be right about.
 
-**What it literally is:** The fraction of rows where the predicted class matches the label.
+This is the **accuracy paradox**. The model is a disaster for the fraud team and a hero on the accuracy slide. Anyone who ships Model A because “we hit 99%” has not said which question the 99% answered. It answered: “how often did we match the majority label?”
 
-**Why it lies on rare events:** If 1% of transactions are fraud, a model that always says “legit” scores 99%. The denominator is full of easy true negatives. The business wanted the rare positives.
+**Model B flags 10 payments, and 1 of them is the real fraud.** So it caught the fraud and annoyed 9 legitimate customers.
 
-**Balanced classes** means each class is roughly as common as the others. Iris species in the teaching dataset are balanced, so accuracy is less misleading there than it is in fraud.
+- TP = 1, FP = 9, FN = 0, TN = 90
 
-**Class imbalance** means one class is rare. The rare class is usually the one you cannot afford to ignore, which is exactly when accuracy looks best while doing nothing.
+\[
+\text{Accuracy} = \frac{1 + 90}{100} = 0.91
+\]
+
+\[
+\text{Precision} = \frac{TP}{TP + FP} = \frac{1}{1 + 9} = 0.10
+\]
+
+\[
+\text{Recall} = \frac{1}{1 + 0} = 1.0
+\]
+
+Model B has worse accuracy than Model A and is the one that did the job. Precision is only 10%: when it rings the bell, it is usually wrong. Whether that is acceptable depends on what the bell costs. If the bell is “add one review in a queue,” 9 false alarms may be cheap. If the bell is “freeze the customer’s account,” it is not.
+
+**Model C flags 2 payments and both are wrong.** It missed the real fraud.
+
+- TP = 0, FP = 2, FN = 1, TN = 97
+- Accuracy = 97 / 100 = 0.97, which still looks like a good student
+- Precision = 0 / 2 = 0
+- Recall = 0 / 1 = 0
+
+High accuracy, zero precision, zero recall. The matrix is the only reason we can see it. This is why the lab prints `confusion_matrix` and not only `accuracy_score`.
 
 ---
 
-## 🟡 The accuracy paradox (class quiz)
+## 🟢 The two questions, and the formula that refuses to average them kindly
 
-Model that **always predicts “legit”** on fraud:
+**Precision** asks: of the alarms we raised, how many were real? The denominator is our positive predictions, TP + FP. A spam filter with low precision marks genuine mail as spam. The user stops trusting the folder.
 
-- Accuracy ≈ **99%** (looks great)
-- Fraud caught = **0%** (business disaster)
+**Recall** asks: of the real positives, how many did we find? The denominator is reality, TP + FN. A screening test with low recall sends sick people home. A fraud model with low recall leaves the money on the table.
 
-**Production ask:** Recall ≥ 85% at precision ≥ 40% (example from slides) + human review band.
+You can have either number alone by being extreme. Flag everybody: recall is 1, precision collapses to the base rate, here 1%. Flag nobody: you raise no false alarms, and recall is 0. The slide’s production sentence is a compromise, not a definition of a perfect model. An example from class: recall at least 85% while precision stays at least 40%, and a human reviews a middle band of scores. Catch most of the fraud. When you alarm, be right often enough that the reviewers are not buried. Leave the uncertain scores to a person.
 
-**What the production sentence is demanding:** Catch at least 85% of real fraud, and when the model raises an alarm, be right at least 40% of the time. The leftover alarms go to a person. That is an operating point, not “maximize accuracy.”
+The **threshold** moves you along that compromise. Lower it and you flag more, so recall tends to rise and precision tends to fall. The default 0.5 is not on the slide because it is sacred. It is on the slide because it is the default, and defaults are how accidental products get made.
 
-**Why both numbers appear together:** You can get 100% recall by flagging everyone, and precision collapses. You can get high precision by flagging only the most obvious fraud, and recall collapses. The slide’s pair is a business compromise.
-
-**Human review band:** Scores in a middle range are not auto-decided. The model triages; a person handles the uncertain band. That is a system design, not a metric.
-
----
-
-## 🟢 Precision vs recall (different questions)
-
-| Metric | Question | Base |
-|--------|----------|------|
-| **Precision** | Of all **positive predictions**, how many were right? | Predictions |
-| **Recall** | Of all **actual positives**, how many did we find? | Truth |
-
-Formulas:
-
-- Precision = TP / (TP + FP)
-- Recall = TP / (TP + FN)
-
-**When precision matters:** False alarm is expensive (legit email marked spam).
-
-**When recall matters:** Missing a positive is deadly (tumor, fraud).
-
-**F1:** balances precision and recall (harmonic mean).
-
-### How to remember which denominator
-
-**Precision** starts from what you predicted. The denominator is every positive alarm (TP + FP). A spam filter with low precision annoys people because many alarms are wrong.
-
-**Recall** starts from what was real. The denominator is every actual positive (TP + FN). A tumor screen with low recall sends sick people home. Recall is also called **sensitivity** or **true positive rate (TPR)**.
-
-**Specificity** is the twin of recall for the negative class: TN / (TN + FP). It answers “of the truly healthy or truly legitimate cases, how many did we correctly pass?”
-
-**F1** is the harmonic mean:
+**F1** is the harmonic mean of precision and recall:
 
 \[
 F1 = 2 \cdot \frac{\text{precision} \cdot \text{recall}}{\text{precision} + \text{recall}}
 \]
 
-**Why harmonic, not a plain average:** If precision is 1.0 and recall is 0.0, a plain average says 0.5, which sounds acceptable. The harmonic mean is 0, which matches reality: the model found nothing. F1 is a summary, not a substitute for knowing which error the business hates.
-
-**Where to choose:** Write the cost of one FP and one FN in rupees or in harm before you pick the metric. Then move the threshold until the costs are acceptable. Do not hunt for a universal “best” metric.
+Why not a plain average? Take precision 1.0 and recall 0.0. A plain average says 0.5, which sounds like a pass. The harmonic mean is 0, because one of the two numbers is 0. That matches the story of Model A’s cousin: a model that is perfectly precise only because it never finds anything. F1 is a summary for when you truly value both. If one error is much more expensive, do not hide behind F1. Look at the expensive cell.
 
 ---
 
-## 🟡 Iris workflow (sklearn mental model)
+## 🟡 The curve names, so the letters in Module 2 are not new
 
-1. `load_iris()` → X = measurements, y = species (0,1,2)
-2. `train_test_split(..., test_size=0.2, stratify=y, random_state=42)`
-3. `model.fit(X_train, y_train)`
-4. `model.predict(X_test)`
-5. `confusion_matrix`, `classification_report`
+Slide the threshold from “flag nobody” to “flag everybody” and plot the result. Two plots show up in this program.
 
-**Stratify:** keep same class mix in train and test.
+The **ROC** curve is the receiver operating characteristic. It plots the true positive rate against the false positive rate. **AUROC**, the area under that curve, is the probability that a random real-positive is scored higher than a random real-negative. 0.5 means the ranking is chance. 1.0 means every positive outranks every negative. WeatherWise later uses an example bar of AUROC at least 0.75.
 
-**What the Iris data is:** A small classic table of flowers. Four measurements (sepal and petal length and width) and three species. It is multi-class classification. It is taught because the table is clean, not because flowers are the goal.
-
-**What each call does:**
-
-| Call | What | Why |
-|------|------|-----|
-| `train_test_split` | Holds out 20% of rows | The held-out rows are the exam |
-| `test_size=0.2` | 20% test, 80% train | A common teaching split, not a law |
-| `stratify=y` | Preserves the species mix | A random split of a small set can accidentally put almost all of one species in test |
-| `random_state=42` | Fixes the shuffle | 42 is a convention. Any fixed integer makes the split repeatable. |
-| `fit` | Learns from training rows only | This is the only place labels may influence weights |
-| `predict` | Emits a class per test row | Uses frozen weights, no labels |
-| `classification_report` | Precision, recall, and F1 per class | One accuracy would hide a species the model confuses |
-
-**Where students go wrong:** Calling `predict` on `X_train` and celebrating that score. Also fitting a scaler on `X` before the split.
+On rare events, the ROC can look cheerful while precision is awful, because the false positive rate’s denominator is the huge pile of legitimate cases. The **precision–recall curve** is the more honest picture for 1% fraud. Module 2 will say AUROC. You should remember when it flatters.
 
 ---
 
-## 🟡 Overfitting vs underfitting
+## 🟡 Iris, as the mental model of an honest notebook
+
+Iris is a small flower table used because it is clean, not because the career is botany. Four measurements, three species, roughly balanced. Multi-class classification.
+
+The calls, and what each one is for:
+
+1. Load X, the measurements, and y, the species coded 0, 1, and 2.
+2. `train_test_split(..., test_size=0.2, stratify=y, random_state=42)`. Hold out 20%. **Stratify** means the species mix in test matches the mix in the full data. On a small table, an unstratified shuffle can put almost all of one species into the exam by accident. **random_state=42** fixes the shuffle. The number 42 is a joke that became a convention. Any fixed integer works. No integer means every run sits a different exam and you cannot tell a better model from a luckier shuffle.
+3. `fit` on the training rows only. This is the only call allowed to let labels influence weights.
+4. `predict` on the test measurements. Labels do not enter.
+5. Print the matrix and `classification_report`.
+
+The report gives precision, recall, and F1 for each species, plus **support**, which is how many true test rows of that species exist. A species with support 2 can show a perfect precision by luck. Read the support before you believe the percentage.
+
+What we do not do: call `predict` on the training rows and celebrate, or fit a scaler on the whole table before the split.
+
+---
+
+## 🟡 Overfitting, underfitting, and the two meanings of “bias” that collide here
 
 | | Underfitting | Overfitting |
-|---|--------------|-------------|
-| **Symptom** | Poor on train and test | Great train, poor test |
-| **Cause** | Too simple | Memorized noise |
-| **Fix ideas** | Richer features / model | More data, regularization, simpler model |
+|--|--------------|-------------|
+| What you see | Poor on train and on test | Excellent on train, poor on test |
+| What is wrong | The model is too simple to express the pattern | The model memorized noise in this sample |
+| What you try | Richer features, a more flexible model | More data, regularization, a simpler model |
 
-**What underfitting means:** The model’s family cannot express the pattern. A straight line through a U-shaped relationship fails on the training rows themselves. Adding data does not fix a model that is the wrong shape. This is also called **high bias** in the statistical sense: the model is systematically too rigid. That “bias” is not the neuron’s bias term and not social bias.
+Statisticians call underfitting **high bias**: systematically too rigid. They call overfitting **high variance**: a different sample would have produced a very different model. This “bias” is not the neuron’s bias term, and it is not the social bias of Module 2. The **bias–variance tradeoff** says simple models tend toward bias and flexible models tend toward variance. You spend flexibility until the test score, not the training score, stops improving.
 
-**What overfitting means:** The model fits quirks of this sample, including noise. Training accuracy is flattering. Test accuracy drops. This is **high variance**: a different sample would have produced a very different model.
-
-**Bias–variance tradeoff:** Simple models have more bias and less variance. Flexible models have less bias and more variance. Regularization, more data, and a smaller tree pull a flexible model back.
-
-**How you tell them apart:** Compare train and test. Both bad → underfit or a data problem. Train excellent and test poor → overfit or a leakage-free distribution gap. Both excellent, then production poor → leakage or drift. The table alone cannot diagnose leakage.
+The table cannot diagnose leakage. Both scores excellent, and then production poor, is the signature of a leaked test or of drift. Train excellent and test poor is the signature of overfitting on a fair split, or of a train and test that were never the same problem.
 
 ---
 
-## 🔴 Cross-validation
+## 🔴 Cross-validation, and the time-series warning
 
-One split can be lucky. **cross_val_score** with k folds → **mean CV score** = more stable estimate.
+One 80/20 cut can be lucky. **Cross-validation** cuts the training data into k **folds**. Train on k − 1 of them, score the leftover, and rotate until every fold has been the leftover once. The mean is a steadier estimate. The spread tells you whether the score is stable or whether one lucky fold is carrying it. k = 5 is a common default.
 
-**What a fold is:** Split the training data into k parts. Train on k−1 parts, score the leftover part, and rotate until every part has been the leftover once.
+The scaler and the model have to sit inside the same pipeline and be refit on each training fold. If you scale the whole dataset first, every fold has already seen the held-out fold’s mean. That is leakage with a more impressive function name.
 
-**Why:** A single 80/20 cut might put the easy rows in test. The mean across folds is harder to luck into. The spread across folds tells you whether the score is stable.
+**CV** in `cross_val_score` means cross-validation. In a vision paper, CV means computer vision. Read the sentence.
 
-**How it must be built:** The scaler and the model belong inside the same pipeline, refit on each training fold. If you scale the whole dataset first, every fold has seen the held-out fold’s mean. That is leakage with extra steps.
-
-**Where it is not enough:** Time series. Random folds let the future train the past. Use a forward-rolling split instead. Module 2 makes chronological splits mandatory for rain.
-
-**CV** here means **cross-validation**, not computer vision. The same letters are used for both; read the sentence.
-
-**k** is the number of folds. 5 is a common default.
+Cross-validation with a random fold is the wrong tool for rain. A random fold lets Tuesday train the model that is examined on Monday. Module 2 will insist on a chronological split. The principle is already here: the exam must be data the model would not have seen at the time of the decision.
 
 ---
 
-## 🟡 Imbalanced data toolkit
+## 🟡 When the classes are not 50/50
 
-- Don’t trust accuracy alone
-- Use precision-recall, class weights, resampling
-- Inspect FP and FN manually (**error analysis**)
+The toolkit from class:
 
-**Class weight:** Tell the loss function that a rare positive counts more than a common negative, so the model cannot ignore it.
-
-**Resampling:** Either duplicate or synthesize rare rows (**oversampling**) or drop some majority rows (**undersampling**). Do this only inside the training fold. A synthetic copy that lands in both train and test is leakage.
-
-**Error analysis:** Read actual false positives and false negatives. The metric says how many. The rows say why. Maybe every miss is a new merchant category, which is a data problem, not a reason to change algorithms.
-
-**PR curve:** Precision–recall curve. It shows the tradeoff as you slide the threshold. **ROC** means receiver operating characteristic, a plot of true positive rate against false positive rate. **AUROC** (area under the ROC) is one summary of ranking quality. On rare events, a precision–recall curve is often the more honest picture. Module 2 uses AUROC as a WeatherWise target.
+- Do not report accuracy alone.
+- Look at precision and recall, or a precision–recall curve.
+- Tell the loss that a rare positive counts more, which is a **class weight**.
+- Or resample the training fold: **oversampling** duplicates or synthesizes rare rows, **undersampling** drops majority rows. Do this only inside training. A synthetic copy that lands in both train and test is leakage.
+- Do **error analysis**: read actual false positives and false negatives. The metric says how many. The rows say why. If every miss is a new merchant category, you have a data problem, and a new algorithm will rediscover it.
 
 ---
 
-## Quiz #3 answers (from slides)
+## Quiz 3, with the reason next to the letter
 
-| Dilemma | Answer |
-|---------|--------|
-| RBI must explain rejection factors | **Glass-box** + SHAP |
-| 99% accuracy, 1% tumors | **Accuracy trap** → demand **recall** |
-| Predict IPL coin toss | **Infeasible** (random) |
-| 99% train, 52% test | **Overfitting** (or leakage) |
-
-**Why each answer is the answer:**
-
-- A regulator asking for rejection factors needs a model you can explain. Glass-box coefficients, or SHAP on a more complex model, are the course’s pair. Accuracy is irrelevant to that question.
-- A 1% tumor rate makes “always healthy” look 99% accurate. The metric that counts missed tumors is recall.
-- A fair coin has no features. Gate 2 from the SDLC notes says do not build.
-- A huge train-to-test gap means the model memorized, or the test was not as clean as you think. Inspect leakage and simplicity before you celebrate the training number.
-
-**IPL** is the Indian Premier League. The coin toss is a stand-in for any label that is not predictable from the features.
+| The dilemma | The answer | Why it is not the other answers |
+|--------------|------------|---------------------------------|
+| RBI requires the factors behind a rejection | A glass-box model, plus SHAP if the model is an ensemble | Accuracy does not answer “why this person.” |
+| 99% accuracy, and 1% of cases are tumors | The accuracy trap. Demand recall | Model A from the board would score 99% and find no tumors. |
+| Predict the IPL coin toss | Do not build. The label is noise | No feature is related to a fair toss. Gate 2 from the lifecycle class. |
+| 99% on train, 52% on test | Overfitting, and go look for leakage too | The model learned the practice sheet. If the test was contaminated, even this warning can disappear, so check the split either way. |
 
 ---
 
 ## Checkpoint
 
-If precision is 100% and recall is 10%, what’s happening?
+Precision is 100% and recall is 10%. Say what the model is doing, in counts, and name a product where that would be acceptable and one where it would be a failure.
 
-**Answer:** Every alarm is correct, and the model only alarms on a tenth of the real positives. It is extremely cautious. That is acceptable when a false alarm is intolerable and missing most cases is acceptable. It is a failure when the job is to find tumors or fraud. Read the business cost before you call the number “good.”
+One consistent picture: the model made 10 alarms, all of them real, and there were 100 real positives, so it missed 90. It is extremely cautious. That is acceptable when a false alarm is intolerable and missing most cases is tolerable, for example a fully automated irreversible action. It is a failure for fraud or for tumors, where the missed positives are the harm you built the system to reduce.
 
-**Next:** [05-python-ml-workflow-and-pitfalls.md](05-python-ml-workflow-and-pitfalls.md)
+**Next class:** [05-python-ml-workflow-and-pitfalls.md](05-python-ml-workflow-and-pitfalls.md)

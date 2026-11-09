@@ -1,165 +1,112 @@
-# Session notes — GenAI, prompts, responsible AI
+# Class notes — Generative models, prompts, and what you still own
 
-*Based on: Student Guide W1 (GenAI, RLHF, prompting), evolutionary stages, responsible AI pillars.*
+*Student guide on GenAI, RLHF, prompting, and the responsible-AI pillars.*
 
-Generative models feel conversational. The engineering questions are the same as the rest of this module: what is the system allowed to know, why should you trust this output, and where does a human stay accountable?
-
----
-
-## 🟢 GenAI in one paragraph
-
-**Generative AI** creates new content (text, images, audio) by learning statistical patterns from huge datasets. **LLMs** predict the **next token** given context — they are not databases of facts.
-
-Training phases (high level):
-
-1. **Pretraining** — learn language structure from massive text
-2. **RLHF** — humans rate outputs → model learns helpful/safe style
-3. **Safety guardrails** — refuse harmful requests
-
-### What each phase actually changes
-
-| Phase | What happens | Why it exists | What it does not do |
-|-------|--------------|---------------|---------------------|
-| **Pretraining** | The model reads a huge corpus and practices next-token prediction | Gives the model grammar, facts it saw often, and general skills | It does not know your private documents, and it does not guarantee truth |
-| **RLHF** | Reinforcement learning from human feedback. People rank answers; a reward model learns those preferences; the LLM is updated to prefer higher-ranked answers | Makes answers more helpful, polite, and aligned with instructions | It does not turn the model into a verified database |
-| **Guardrails** | Filters and policies around the model, before the prompt or after the answer | Stop disallowed content even if the base model would produce it | They are not perfect. They are a layer, like a threshold on a fraud model |
-
-**Reinforcement learning** is a training style where the model gets a reward signal rather than only a single correct label. **RLHF** uses human preferences as that signal.
-
-**Why “not a database” matters:** Ask for a citation and the model may produce a real-looking title that does not exist. That failure is a **hallucination**: fluent text that is not grounded. The fix is to retrieve a trusted document and require the answer to stay inside it (retrieval-augmented generation, taught in Module 2), or to keep a human on the decision.
-
-**Where you see the three phases:** The chat product you use has all three. Pretraining is the base model. RLHF is why it follows “answer briefly” better than a raw pretrained model. Guardrails are why some requests are refused before a normal completion.
-
-**Token, restated:** A token is a chunk of text, often part of a word. Context length is how many tokens the model can consider at once. A 60-page circular may not fit, which is why summarization pipelines chunk documents.
+The earlier classes produced a probability you could put next to a label. This class produces a paragraph. The paragraph can be useful and it can be fiction. The engineering question does not change: what was the system allowed to know, why should anyone trust the output, and who answers when it is wrong?
 
 ---
 
-## 🟢 Human–AI partnership
+## 🟢 What the model was actually trained to do
 
-You still own:
+A generative model creates new content by repeating statistical patterns it saw in a huge collection of text, images, or audio. A large language model’s native act is narrower than the marketing. Given the tokens so far, predict the next token. A token is a chunk, often part of a word. Do that many times and you have a paragraph. Nowhere in that act is “consult a system of record.” If the weights happen to reproduce a fact that appeared often in training, the paragraph may be true. If they do not, the paragraph may still sound true. That failure has a name, **hallucination**: fluent text that is not grounded in a source you trust.
 
-- **What to ask** (task + context)
-- **Whether to trust** the output (hallucinations happen)
-- **Compliance** (PII, regulations)
+There are three stages people blur into “the AI.”
 
-> AI may not take your job; people using AI productively might.
+**Pretraining.** The model reads a massive corpus and practices next-token prediction. It picks up grammar, associations, and facts that were repeated. It does not know your company’s policy, and it does not know what happened this morning unless that text is placed in front of it. Pretraining is expensive and, for you, usually already done by the time you call an API.
 
-**What “you own the ask” means:** The model completes a pattern. A vague pattern produces a vague completion. Specifying the user, the decision, the format, and the constraint is part of the engineering, the same way defining `y` is part of supervised learning.
+**RLHF — reinforcement learning from human feedback.** People rank several answers to the same prompt. A reward model learns those preferences. The language model is then updated to prefer answers the reward model scores highly. This is why a chat model follows “be brief” and “refuse this” better than a raw pretrained model does. **Reinforcement learning** means the training signal is a reward, not only a single correct label. RLHF does not turn the model into a verified database. It turns it into a model that produces the kind of answer humans marked as better.
 
-**What “you own trust” means:** The model does not know when it is guessing. Verification is an external step: check a source, run the code, compare with a policy, or have a reviewer sign off.
+**Guardrails.** Filters and policies around the model, on the way in and on the way out. They refuse some requests and block some outputs. They are a layer, like a threshold on a fraud score. They are not a proof that everything which passes is acceptable. You still test them.
 
-**PII** means **personally identifiable information**: names, account numbers, phone numbers, anything that can identify a person. Pasting a customer’s full record into a public chatbot can be a compliance incident even if the answer that comes back is useful.
+A worked distinction the class needed. Ask “what is the cooling-off period in the attached policy?” with the policy pasted underneath. The model can quote. Ask the same question with no policy, and the model will often invent a number and a section heading. The second answer is a sample from the weights, not a lookup. Low temperature makes the invention more repeatable. It does not make it a lookup. The lookup is a separate system, retrieval-augmented generation, which Module 2 builds properly. Until then, treat an ungrounded number as unverified.
 
-**Where compliance shows up:** Regulated text such as an RBI circular may be summarized, but the summary is not itself the regulation. A loan denial still needs an approved decision process, not only a well-written paragraph.
+**Context length** is how many tokens fit in front of the model at once. A 60-page circular may not fit. The practical consequence is chunking: you break the document into pieces and decide which pieces to show. Cutting a sentence in half can separate the word “no” from the word “rain.” Chunking is an engineering choice, not a formatting detail.
 
 ---
 
-## 🟢 Good prompt structure (from student guide)
+## 🟢 The three things a person still owns
 
-| Part | Purpose |
-|------|---------|
-| **Task** | What you want (“agenda for workshop”) |
-| **Context** | Who, why, constraints (aerospace leaders, 4 hours) |
-| **Clarifying invitation** | “Ask me questions before you start” |
+The slide says the model does not take the job. A person who can aim it might. The line is easy to mock and worth unpacking, because “aim it” is three concrete duties.
 
-**Bad prompt:** “Write something about AI.”
-**Better:** Task + audience + format + constraints + invite clarifications.
+**You own the ask.** The model completes a pattern. A vague pattern completes into a vague answer. Specifying the task, the audience, the format, and the constraint is the same kind of work as defining y in supervised learning. If you do not define the output, the model will, and it will sound finished.
 
-### Why the three parts work
+**You own the trust decision.** The model does not know when it is guessing. Verification is outside it: run the code, open the circular, compare the number with the policy, or have a named reviewer sign. “It sounded right” is not a control.
 
-**Task** is the verb and the artifact. “Write an agenda” is checkable. “Write something” is not.
+**You own compliance.** **PII** is personally identifiable information: names, account numbers, phone numbers, anything that identifies a person. Pasting a customer’s full record into a public chatbot can be an incident even if the reply is helpful. A summary of an RBI circular is not itself the regulation. A loan denial still needs the approved decision process, not only a well-written paragraph.
 
-**Context** is the condition that changes the artifact. Aerospace leaders for four hours is a different agenda from schoolchildren for twenty minutes. Leaving it out forces the model to invent an audience, and it will, confidently.
-
-**Clarifying invitation** stops the model from filling gaps with fiction. It is the prompt equivalent of refusing to impute a label you do not know.
-
-**A fuller prompt also names:**
-
-| Extra piece | What it controls | Example |
-|-------------|------------------|---------|
-| **Format** | Shape of the output | A table with time, topic, and outcome |
-| **Constraints** | What must not happen | No vendor pitches, no more than six sessions |
-| **Evidence** | What the model may rely on | Only the attached brief; say “not in the brief” otherwise |
-| **Success check** | How you will grade it | Each session has one verb and one deliverable |
-
-**How to test a prompt:** Run it several times. If the structure collapses, the instruction is too soft. If the facts change, the prompt needs a source document, not a higher temperature.
-
-**Where prompts are not the whole system:** A prompt cannot enforce a 15 ms fraud decision or a legal eligibility rule. Those stay code. The prompt belongs where the output is language and a human or a checker is in the loop.
+Write the duties next to the fraud lesson. There, a human owned the threshold. Here, a human owns the source and the sign-off. The tool changed. The ownership did not.
 
 ---
 
-## 🟡 Stages of AI evolution (memorize lightly)
+## 🟢 A prompt, taken apart the way we did in class
 
-1. Rule-based
-2. Context-based (personalization)
-3. Narrow domain experts
-4. Reasoning models
-5. **AGI** (aspirational)
-6. Superintelligence (theoretical)
+The bad prompt was “write something about AI.” There is no task you can mark, no reader, and no constraint. The model must invent all three, and it will.
 
-You’re firmly in **3–4** today for products.
+The structure from the student guide:
 
-| Stage | What it means | A real example | Why it is not the next stage |
-|-------|---------------|----------------|------------------------------|
-| **Rule-based** | Humans wrote the logic | GST at 18% | It does not adapt |
-| **Context-based** | The system changes with user or session context | Recommendations that use your history | It is still a narrow predictor |
-| **Narrow expert** | Strong on one domain | A fraud model, a weather model, a coding assistant in a sandbox | It does not transfer to every job |
-| **Reasoning model** | Spends extra steps trying to chain a solution | A model that shows work on a multi-step problem | The chain can still be wrong |
-| **AGI** | Artificial general intelligence: human-level breadth across tasks | Not a product you can buy | The word is a goal, not a description of today’s API |
-| **Superintelligence** | Hypothetical systems beyond human level across the board | Not an engineering input | Do not use it to skip metrics and monitoring |
+| Piece | What it is doing | The workshop example |
+|-------|------------------|----------------------|
+| Task | The verb and the artifact, specific enough to mark | Produce an agenda |
+| Context | The facts that would change the artifact | Aerospace engineering leads, four hours, no vendor pitches |
+| Clarifying invitation | Permission to refuse to guess | Ask me what you need before you draft |
 
-**Why the course says you are in 3–4:** The tools you call are excellent at specific tasks and can attempt multi-step reasoning. They are not general agents that can be handed an open-ended company and trusted. Shipping them still requires the SDLC from the earlier notes.
+A fuller prompt adds three more lines when the stakes are real.
 
----
+**Format.** “A table with time, topic, and the deliverable of that session.” Format is how you stop a wandering essay.
 
-## 🟢 Responsible AI pillars (course)
+**Evidence.** “Use only the attached brief. If a fact is not in the brief, write ‘not in the brief’ rather than supplying one.” This is the prompt version of forbidding leakage. You are telling the model which features exist.
 
-| Pillar | Meaning |
-|--------|---------|
-| **Unbiased** | Reduce unfair prejudice in data/model |
-| **Human-centred** | Design for people, not only metrics |
-| **Secure & reproducible** | Protect data; repeat experiments |
-| **Explainable** | Know *why* a decision happened |
-| **Monitorable** | Watch performance and safety in production |
+**A check.** “Every session has one verb and one deliverable. There are no more than six sessions.” Now you can mark the output without rereading it for vibes.
 
-Connects directly to **Module 2** (bias, SHAP, data cards, trust gates).
+The clarifying invitation is the part people delete because they want an answer immediately. It is the part that stops the model filling gaps with fiction. It is the same instinct as refusing to impute a label you do not know.
 
-### What each pillar asks you to do
+How to test the prompt. Run it several times at the temperature you intend to ship. If the structure collapses, the instruction is too soft. If the facts change between runs, the prompt needs a source document, not a more forceful adjective. Adjectives like “accurately” do not consult a source.
 
-**Unbiased.** Compare errors and outcomes across groups that could be harmed. A high overall accuracy can hide a group that is always rejected. Module 2 names this with disparate impact and proxies. “We did not include the sensitive column” is not the end of the check, because other columns can stand in for it.
-
-**Human-centred.** Name the person who benefits and the person who is harmed if the model is wrong. A farmer who skips irrigation and a patient who is triaged are not “users” in the abstract. Design the review path for them.
-
-**Secure and reproducible.** Secure means access control, encryption, and not leaking PII into logs or third-party prompts. Reproducible means a later audit can rebuild the same data version, code version, and metric. If you cannot rerun it, you cannot defend it.
-
-**Explainable.** For a scored decision, be able to say which inputs moved it. For a generated paragraph, be able to say which source it was supposed to use. Explanation is for the affected person and for the engineer debugging a mistake. SHAP is one feature-level tool, not the whole pillar.
-
-**Monitorable.** Define what you will watch before launch: data drift, refusal rate, hallucination checks on a fixed prompt set, latency, and the business KPI. A pillar you cannot graph will be skipped on a busy week.
-
-**Where the pillars sit in the SDLC:** They are not a phase 8 slide you visit once. Bias starts at collection. Explanation starts when you choose a glass-box or a black-box. Monitoring starts at deployment, which the AI SDLC treats as the beginning.
+And the boundary from the first class still holds. A prompt is the wrong tool for GST, for a password rule, and for a 15 ms fraud decision. Those are code. A prompt belongs where the output is language and a person or a checker is in the loop.
 
 ---
 
-## 🟡 Emergent capabilities
+## 🟡 The six stages, and where our products actually are
 
-Larger models gain skills not explicitly programmed (coding, reasoning-ish behavior). Still **probabilistic** — verify outputs.
+Memorize the ladder lightly. Do not use the top of it to skip a metric.
 
-**Multimodality:** text + image + audio in one model (“whatever-to-whatever”).
+1. **Rule-based.** A person wrote the logic. GST. It does not adapt, and it does not need to.
+2. **Context-based.** The output changes with a user or a session. A recommendation that uses your history. Still a narrow predictor.
+3. **Narrow experts.** Strong on one domain. A fraud model, a weather model, a coding assistant inside a sandbox. This is most of what companies run.
+4. **Reasoning models.** They spend extra steps trying to chain a solution, and they may show the chain. The chain can be wrong. A wrong proof is still a sample.
+5. **AGI — artificial general intelligence.** Human-level breadth across tasks. This is a goal people argue about. It is not a description of the API you called this morning, and it is not an input to your design.
+6. **Superintelligence.** A hypothetical beyond human level across the board. It is not an engineering parameter. Anyone who uses the word to avoid a test set is changing the subject.
 
-**What “emergent” means:** A skill that was not a separate labeled project, but appears once the model and the data are large enough. It is an observation about scale, not a promise that the skill is reliable.
+The faculty placed real products in stages 3 and 4. Excellent at specific tasks, sometimes able to attempt a multi-step chain, not a general agent you hand a company to. Shipping them still requires the lifecycle from the second class: a decision, data, an evaluation, and monitoring.
 
-**Why you still verify:** An emergent coding skill can produce code that runs and is wrong. Probability did not go away because the output looks like reasoning.
+**Emergent** is the word for a skill that was not a separate labeled project but appears once the model and the data are large enough. Coding, and something that looks like reasoning, are the examples people cite. Emergent does not mean reliable. Code that runs can still compute the wrong thing. You verify.
 
-**Multimodal, unpacked:** The model maps more than one kind of input into a shared representation. A picture plus a question, or speech plus a document. “Whatever-to-whatever” is the slogan; the engineering limit is still context length, latency, and whether you have a way to check the answer.
+**Multimodal** means the model accepts more than one kind of input, text and an image and audio, sometimes called “whatever-to-whatever.” A weather assistant that takes a radar image and a bulletin is multimodal. The rain decision should still come from a measured pipeline with a metric. A caption the model wrote about the image is not that metric.
 
-**Where this changes design:** A weather assistant that accepts a radar image and a bulletin is multimodal. The rain decision should still come from a measured pipeline with a metric, not only from a caption the model wrote about the image.
+---
+
+## 🟢 The five responsible-AI pillars, as work rather than as a poster
+
+The course names five. Each one is a thing you can fail to do.
+
+**Unbiased.** Compare errors and outcomes across the groups that can be harmed. A high overall accuracy can hide a group that is always rejected. Module 2 will give this a number, disparate impact, and a mechanism, the proxy. Deleting the sensitive column is not the end of the work, because another column can carry the same information.
+
+**Human-centred.** Name the person who benefits and the person who is hurt if the model is wrong. “Users” is not a name. A farmer who skips irrigation, a patient who is triaged, an applicant who is denied: those are names. Design the review path for the person who bears the downside.
+
+**Secure and reproducible.** Secure means access control, encryption, and not leaking PII into logs or into a third-party prompt. Reproducible means a later audit can rebuild the same data version, the same code version, and the same metric. If you cannot rerun it, you cannot defend it. This is the same triple as the Python class, extended to the prompt, the model version, and the documents you retrieved.
+
+**Explainable.** For a score, be able to say which inputs moved it. For a paragraph, be able to say which source it was supposed to use. Explanation serves the person affected and the engineer debugging a surprise. SHAP is one feature-level tool. It is not the whole pillar.
+
+**Monitorable.** Decide what you will watch before launch. Data drift. Refusal rate. A fixed set of prompts you rerun to see whether answers are drifting. Latency. The business KPI. A pillar you cannot put on a graph will be skipped on a busy week.
+
+These are not “phase 8, if we have time.” Bias starts when you collect. Explanation starts when you choose a glass-box or a black-box. Monitoring starts at deployment, which this course treats as the beginning of the AI lifecycle.
 
 ---
 
 ## Checkpoint
 
-Name two responsibilities humans keep even with a strong LLM.
+Name two duties that remain with a person even if the language model is the strongest one you can call. Say what goes wrong in the week you drop each duty.
 
-**Answer:** You still decide what to ask and what context the model is allowed to see, and you still decide whether the output is true, safe, and compliant enough to act on. A third that counts: you own the monitoring and the audit trail after the system is live.
+You still decide what is asked and what the model is allowed to see. Drop that, and it invents the audience, the facts, and the format. You still decide whether the output is true, safe, and compliant enough to act on. Drop that, and a hallucinated policy becomes a customer promise. A third, if you want it: you own the monitoring and the audit trail after the system is live. Drop that, and you will not know the week the answers changed.
 
-**Next:** [07-case-studies-quizzes-and-coding-lab.md](07-case-studies-quizzes-and-coding-lab.md)
+**Next class:** [07-case-studies-quizzes-and-coding-lab.md](07-case-studies-quizzes-and-coding-lab.md)
