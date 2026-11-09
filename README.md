@@ -2,6 +2,8 @@
 
 Structured, **beginner-friendly** notes from your **Applied AI & MLOps** program (Modules 1–2 completed). Written like session notes that build from basics toward engineering-level thinking.
 
+Each topic is expanded in place: **what** it is, **why** it matters, **how** it works, **where** it shows up, plus definitions, everyday meanings, and abbreviations. The original checkpoints, quiz answers, and lab numbers are unchanged.
+
 ## Modules
 
 | Module | Folder | What it covers |
@@ -12,7 +14,7 @@ Structured, **beginner-friendly** notes from your **Applied AI & MLOps** program
 ## How to study (if you felt lost in class)
 
 1. Read each module’s **`00-START-HERE.md`** — it tells you the order and what to ignore on first pass.
-2. **One file per sitting** (~30–45 min). Re-read confusing bits with the glossary open.
+2. **One file per sitting.** Read the story first, then the what/why/how/where notes under each table. Re-read confusing bits with that file’s glossary open.
 3. **Do the mental labs**: answer the “checkpoint” questions at the end of each file before moving on.
 4. Revisit **AWS labs** only after the concept file for that lab.
 
